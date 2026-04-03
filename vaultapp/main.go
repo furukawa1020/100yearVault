@@ -121,6 +121,15 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			title := state.Compose.Title.Text()
 			body := state.Compose.Body.Text()
 			pass := state.Compose.Passphrase.Text()
+			daysInput := state.Compose.UnlockDays.Text()
+			
+			// Parse days (allowing partial days for demo testing)
+			days, err := strconv.ParseFloat(daysInput, 64)
+			if err != nil {
+				days = 36500 // 100 years default if invalid
+			}
+			unlockAt := time.Now().Add(time.Duration(days * 24 * 60 * 60 * float64(time.Second)))
+
 			if title != "" && pass != "" {
 				vid := fmt.Sprintf("v%d", time.Now().Unix())
 				cipherPath := filepath.Join("vaults", vid+".age")
@@ -135,7 +144,7 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 						Title:             title,
 						State:             vault.StateSealed,
 						CreatedAt:         time.Now(),
-						UnlockAt:          time.Now().Add(10 * time.Second), // Demo 10s
+						UnlockAt:          unlockAt,
 						CipherPath:        cipherPath,
 						RequirePassphrase: true,
 						PassphraseHash:    pass, // For MVP, check plain; should be hash in real
