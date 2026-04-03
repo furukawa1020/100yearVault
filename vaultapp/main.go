@@ -12,9 +12,6 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"os"
-	"path/filepath"
-	"time"
 
 	"vaultapp/internal/crypto"
 	"vaultapp/internal/db"
