@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"gioui.org/font"
 	"gioui.org/font/opentype"
 	"gioui.org/text"
 	"gioui.org/widget/material"
@@ -31,9 +32,9 @@ func NewVaultTheme(fontPath string) *material.Theme {
 		return material.NewTheme()
 	}
 	
-	fonts := []text.FontFace{
+	fonts := []font.FontFace{
 		{
-			Font: text.Font{Typeface: "Mincho"},
+			Font: font.Font{Typeface: "Mincho"},
 			Face: face,
 		},
 	}
