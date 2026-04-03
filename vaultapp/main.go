@@ -64,6 +64,7 @@ func loop(w *app.Window) error {
 		Vaults:     vaults,
 		SelectBtns: make([]widget.Clickable, len(vaults)),
 	}
+	state.Compose.UnlockDays.SetText("36500")
 
 	var ops op.Ops
 	for {
