@@ -16,13 +16,27 @@ import (
 	"vaultapp/internal/vault"
 )
 
+type Screen int
+
+const (
+	ScreenVaultList Screen = iota
+	ScreenCompose
+	ScreenRitual
+)
+
 type AppState struct {
-	Theme  *material.Theme
-	Vaults []*vault.Vault
+	Theme         *material.Theme
+	Vaults        []*vault.Vault
+	CurrentScreen Screen
+	
+	// Sub-states
+	Compose ComposeState
+	Ritual  RitualState
 	
 	// Widgets
 	NewVaultBtn widget.Clickable
 	VaultList   layout.List
+	SelectBtns  []widget.Clickable
 }
 
 func (s *AppState) LayoutList(gtx layout.Context) layout.Dimensions {
@@ -53,54 +67,56 @@ func (s *AppState) LayoutList(gtx layout.Context) layout.Dimensions {
 				})
 			}
 			return s.VaultList.Layout(gtx, len(s.Vaults), func(gtx layout.Context, i int) layout.Dimensions {
-				return s.layoutVaultItem(gtx, s.Vaults[i])
+				return s.layoutVaultItem(gtx, i, s.Vaults[i])
 			})
 		}),
 	)
 }
 
-func (s *AppState) layoutVaultItem(gtx layout.Context, v *vault.Vault) layout.Dimensions {
+func (s *AppState) layoutVaultItem(gtx layout.Context, i int, v *vault.Vault) layout.Dimensions {
 	return layout.Inset{Bottom: unit.Dp(10), Left: unit.Dp(20), Right: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		// Card Background
 		dr := image.Rectangle{Max: gtx.Constraints.Max}
 		paint.FillShape(gtx.Ops, ColorSurface, clip.UniformRRect(dr, 8).Op(gtx.Ops))
 		
-		return layout.UniformInset(unit.Dp(15)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Spacing: layout.SpaceBetween}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							title := material.H6(s.Theme, v.Title)
-							if v.State == vault.StateSealed {
-								title.Color = ColorLocked
+		return material.Clickable(gtx, &s.SelectBtns[i], func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(15)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Spacing: layout.SpaceBetween}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								title := material.H6(s.Theme, v.Title)
+								if v.State == vault.StateSealed {
+									title.Color = ColorLocked
+								}
+								return title.Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								state := material.Caption(s.Theme, string(v.State))
+								state.Color = ColorPrimary
+								return state.Layout(gtx)
+							}),
+						)
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						var info string
+						if v.State == vault.StateSealed {
+							remaining := time.Until(v.UnlockAt)
+							if remaining > 0 {
+								info = fmt.Sprintf("Locked. Unlockable in %v", remaining.Truncate(time.Second))
+							} else {
+								info = "Locked. Conditions met. Ready to Ritual Open."
 							}
-							return title.Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							state := material.Caption(s.Theme, string(v.State))
-							state.Color = ColorPrimary
-							return state.Layout(gtx)
-						}),
-					)
-				}),
-				layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					var info string
-					if v.State == vault.StateSealed {
-						remaining := time.Until(v.UnlockAt)
-						if remaining > 0 {
-							info = fmt.Sprintf("Locked. Unlockable in %v", remaining.Truncate(time.Second))
 						} else {
-							info = "Locked. Conditions met. Ready to Ritual Open."
+							info = fmt.Sprintf("Opened on %v", v.OpenedAt.Format("2006/01/02 15:04"))
 						}
-					} else {
-						info = fmt.Sprintf("Opened on %v", v.OpenedAt.Format("2006/01/02 15:04"))
-					}
-					lbl := material.Caption(s.Theme, info)
-					lbl.Color = color.NRGBA{R: 150, G: 150, B: 160, A: 255}
-					return lbl.Layout(gtx)
-				}),
-			)
+						lbl := material.Caption(s.Theme, info)
+						lbl.Color = color.NRGBA{R: 150, G: 150, B: 160, A: 255}
+						return lbl.Layout(gtx)
+					}),
+				)
+			})
 		})
 	})
 }
