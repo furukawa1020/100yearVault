@@ -12,7 +12,11 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"os"
+	"path/filepath"
+	"time"
 
+	"vaultapp/internal/crypto"
 	"vaultapp/internal/db"
 	"vaultapp/internal/ui"
 	"vaultapp/internal/vault"
@@ -118,21 +122,33 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			// Ritual is real! Let's seal it.
 			title := state.Compose.Title.Text()
 			body := state.Compose.Body.Text()
-			if title != "" {
-				v := &vault.Vault{
-					ID:        fmt.Sprintf("v%d", time.Now().Unix()),
-					Title:     title,
-					State:     vault.StateSealed,
-					CreatedAt: time.Now(),
-					UnlockAt:  time.Now().Add(10 * time.Second), // Demo 10s
-					PreviewHint: body, // Temp
+			pass := state.Compose.Passphrase.Text()
+			if title != "" && pass != "" {
+				vid := fmt.Sprintf("v%d", time.Now().Unix())
+				cipherPath := filepath.Join("vaults", vid+".age")
+				
+				// Encrypt
+				ciphertext, err := crypto.Encrypt([]byte(body), pass)
+				if err == nil {
+					os.WriteFile(cipherPath, ciphertext, 0600)
+					
+					v := &vault.Vault{
+						ID:                vid,
+						Title:             title,
+						State:             vault.StateSealed,
+						CreatedAt:         time.Now(),
+						UnlockAt:          time.Now().Add(10 * time.Second), // Demo 10s
+						CipherPath:        cipherPath,
+						RequirePassphrase: true,
+						PassphraseHash:    pass, // For MVP, check plain; should be hash in real
+					}
+					store.SaveVault(v)
+					// Refresh
+					state.Vaults, _ = store.ListVaults()
+					state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
+					state.CurrentScreen = ui.ScreenVaultList
+					w.Invalidate()
 				}
-				store.SaveVault(v)
-				// Refresh
-				state.Vaults, _ = store.ListVaults()
-				state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
-				state.CurrentScreen = ui.ScreenVaultList
-				w.Invalidate()
 			}
 		}
 	}
@@ -145,16 +161,25 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		}
 		if state.Ritual.UnlockBtn.Clicked(gtx) {
 			v := state.Ritual.ActiveVault
-			if time.Now().After(v.UnlockAt) {
-				// SUCCESS
-				v.State = vault.StateOpened
-				v.OpenedAt = time.Now()
-				store.SaveVault(v)
-				
-				state.Vaults, _ = store.ListVaults()
-				state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
-				state.CurrentScreen = ui.ScreenVaultList
-				w.Invalidate()
+			pass := state.Ritual.Password.Text()
+			if time.Now().After(v.UnlockAt) && pass == v.PassphraseHash {
+				// Decrypt to verify
+				cipher, err := os.ReadFile(v.CipherPath)
+				if err == nil {
+					decrypted, err := crypto.Decrypt(cipher, pass)
+					if err == nil {
+						// SUCCESS
+						v.State = vault.StateOpened
+						v.OpenedAt = time.Now()
+						v.PreviewHint = string(decrypted)
+						store.SaveVault(v)
+						
+						state.Vaults, _ = store.ListVaults()
+						state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
+						state.CurrentScreen = ui.ScreenVaultList
+						w.Invalidate()
+					}
+				}
 			}
 		}
 	}
