@@ -110,6 +110,9 @@ func (s *AppState) layoutVaultItem(gtx layout.Context, i int, v *vault.Vault) la
 							}
 						} else {
 							info = fmt.Sprintf("Opened on %v", v.OpenedAt.Format("2006/01/02 15:04"))
+							if v.PreviewHint != "" {
+								info += "\n\nContent: " + v.PreviewHint
+							}
 						}
 						lbl := material.Caption(s.Theme, info)
 						lbl.Color = color.NRGBA{R: 150, G: 150, B: 160, A: 255}
