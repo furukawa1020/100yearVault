@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -10,10 +12,12 @@ import (
 )
 
 type RitualState struct {
-	ActiveVault *vault.Vault
-	Password    widget.Editor
-	UnlockBtn   widget.Clickable
-	CancelBtn   widget.Clickable
+	ActiveVault  *vault.Vault
+	Password        widget.Editor
+	UnlockBtn       widget.Clickable
+	CancelBtn       widget.Clickable
+	IsProcessing    bool
+	ProcessingSince time.Time
 }
 
 func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimensions {
@@ -27,17 +31,28 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if r.IsProcessing {
+						lbl := material.H4(s.Theme, "VERIFYING THE ANCIENT SEAL...")
+						lbl.Color = ColorPrimary
+						return lbl.Layout(gtx)
+					}
 					lbl := material.Body1(s.Theme, "Vault: "+r.ActiveVault.Title)
 					return lbl.Layout(gtx)
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if r.IsProcessing {
+						return layout.Dimensions{}
+					}
 					ed := material.Editor(s.Theme, &r.Password, "Enter Secret Passphrase")
 					ed.Color = ColorPrimary
 					return ed.Layout(gtx)
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if r.IsProcessing {
+						return layout.Dimensions{}
+					}
 					return layout.Flex{}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return material.Button(s.Theme, &r.CancelBtn, "ABANDON").Layout(gtx)

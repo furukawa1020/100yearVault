@@ -153,30 +153,48 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 	// Ritual Screen Logic
 	if state.CurrentScreen == ui.ScreenRitual {
 		if state.Ritual.CancelBtn.Clicked(gtx) {
+			state.Ritual.IsProcessing = false
 			state.CurrentScreen = ui.ScreenVaultList
 			w.Invalidate()
 		}
-		if state.Ritual.UnlockBtn.Clicked(gtx) {
-			v := state.Ritual.ActiveVault
-			pass := state.Ritual.Password.Text()
-			if time.Now().After(v.UnlockAt) && pass == v.PassphraseHash {
-				// Decrypt to verify
-				cipher, err := os.ReadFile(v.CipherPath)
-				if err == nil {
-					decrypted, err := crypto.Decrypt(cipher, pass)
+		if state.Ritual.UnlockBtn.Clicked(gtx) && !state.Ritual.IsProcessing {
+			state.Ritual.IsProcessing = true
+			state.Ritual.ProcessingSince = time.Now()
+			w.Invalidate()
+		}
+
+		if state.Ritual.IsProcessing {
+			if time.Since(state.Ritual.ProcessingSince) > 2*time.Second {
+				v := state.Ritual.ActiveVault
+				pass := state.Ritual.Password.Text()
+				if time.Now().After(v.UnlockAt) && pass == v.PassphraseHash {
+					// Decrypt to verify
+					cipher, err := os.ReadFile(v.CipherPath)
 					if err == nil {
-						// SUCCESS
-						v.State = vault.StateOpened
-						v.OpenedAt = time.Now()
-						v.PreviewHint = string(decrypted)
-						store.SaveVault(v)
-						
-						state.Vaults, _ = store.ListVaults()
-						state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
-						state.CurrentScreen = ui.ScreenVaultList
-						w.Invalidate()
+						decrypted, err := crypto.Decrypt(cipher, pass)
+						if err == nil {
+							// SUCCESS
+							v.State = vault.StateOpened
+							v.OpenedAt = time.Now()
+							v.PreviewHint = string(decrypted)
+							store.SaveVault(v)
+							
+							state.Vaults, _ = store.ListVaults()
+							state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
+							state.Ritual.IsProcessing = false
+							state.Ritual.Password.SetText("") // Clear
+							state.CurrentScreen = ui.ScreenVaultList
+							w.Invalidate()
+						}
 					}
+				} else {
+					// Failure or just condition not met
+					state.Ritual.IsProcessing = false
+					w.Invalidate()
 				}
+			} else {
+				// Keep invalidating to simulate animation frame
+				w.Invalidate()
 			}
 		}
 	}
