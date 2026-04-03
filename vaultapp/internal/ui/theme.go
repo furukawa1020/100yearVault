@@ -39,7 +39,7 @@ func NewVaultTheme(fontPath string) *material.Theme {
 	}
 	
 	th := material.NewTheme()
-	th.Shaper = text.NewShaper(text.WithFullFeatures(), text.WithCollection(fonts))
+	th.Shaper = text.NewShaper(text.WithCollection(fonts))
 	
 	// Customize colors
 	th.Palette.Bg = ColorBackground

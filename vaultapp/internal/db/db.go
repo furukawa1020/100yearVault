@@ -2,8 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"time"
-
 	"vaultapp/internal/vault"
 	_ "github.com/mattn/go-sqlite3"
 )
