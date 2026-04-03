@@ -72,7 +72,7 @@ func loop(w *app.Window) error {
 			gtx := app.NewContext(&ops, e)
 
 			// Logic Handling
-			updateLogic(state, store, w)
+			updateLogic(gtx, state, store, w)
 
 			// Main Layout Based on Screen
 			switch state.CurrentScreen {
@@ -89,9 +89,9 @@ func loop(w *app.Window) error {
 	}
 }
 
-func updateLogic(state *ui.AppState, store *db.Store, w *app.Window) {
+func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app.Window) {
 	// Global: New Vault Button
-	if state.NewVaultBtn.Clicked(nil) {
+	if state.NewVaultBtn.Clicked(gtx) {
 		state.CurrentScreen = ui.ScreenCompose
 		w.Invalidate()
 	}
@@ -99,7 +99,7 @@ func updateLogic(state *ui.AppState, store *db.Store, w *app.Window) {
 	// List Screen Logic
 	if state.CurrentScreen == ui.ScreenVaultList {
 		for i := range state.SelectBtns {
-			if state.SelectBtns[i].Clicked(nil) {
+			if state.SelectBtns[i].Clicked(gtx) {
 				v := state.Vaults[i]
 				state.Ritual.ActiveVault = v
 				state.CurrentScreen = ui.ScreenRitual
@@ -110,11 +110,11 @@ func updateLogic(state *ui.AppState, store *db.Store, w *app.Window) {
 
 	// Compose Screen Logic
 	if state.CurrentScreen == ui.ScreenCompose {
-		if state.Compose.BackBtn.Clicked(nil) {
+		if state.Compose.BackBtn.Clicked(gtx) {
 			state.CurrentScreen = ui.ScreenVaultList
 			w.Invalidate()
 		}
-		if state.Compose.SealBtn.Clicked(nil) {
+		if state.Compose.SealBtn.Clicked(gtx) {
 			// Ritual is real! Let's seal it.
 			title := state.Compose.Title.Text()
 			body := state.Compose.Body.Text()
@@ -139,11 +139,11 @@ func updateLogic(state *ui.AppState, store *db.Store, w *app.Window) {
 
 	// Ritual Screen Logic
 	if state.CurrentScreen == ui.ScreenRitual {
-		if state.Ritual.CancelBtn.Clicked(nil) {
+		if state.Ritual.CancelBtn.Clicked(gtx) {
 			state.CurrentScreen = ui.ScreenVaultList
 			w.Invalidate()
 		}
-		if state.Ritual.UnlockBtn.Clicked(nil) {
+		if state.Ritual.UnlockBtn.Clicked(gtx) {
 			v := state.Ritual.ActiveVault
 			if time.Now().After(v.UnlockAt) {
 				// SUCCESS
@@ -152,6 +152,7 @@ func updateLogic(state *ui.AppState, store *db.Store, w *app.Window) {
 				store.SaveVault(v)
 				
 				state.Vaults, _ = store.ListVaults()
+				state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
 				state.CurrentScreen = ui.ScreenVaultList
 				w.Invalidate()
 			}
