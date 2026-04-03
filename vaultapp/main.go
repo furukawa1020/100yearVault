@@ -1,14 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
+	"gioui.org/widget"
 
 	"vaultapp/internal/db"
 	"vaultapp/internal/ui"
