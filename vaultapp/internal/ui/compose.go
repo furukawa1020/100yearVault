@@ -1,7 +1,11 @@
 package ui
 
 import (
+	"image"
+
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -12,81 +16,128 @@ type ComposeState struct {
 	Body       widget.Editor
 	UnlockDays widget.Editor
 	Passphrase widget.Editor
-	
+
 	SealBtn widget.Clickable
 	BackBtn widget.Clickable
 }
 
 func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dimensions {
+	fillBackground(gtx, ColorBackground)
+
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		// ヘッダー
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: unit.Dp(20), Bottom: unit.Dp(20), Left: unit.Dp(20), Right: unit.Dp(20)}.Layout(gtx,
-				func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return material.Button(s.Theme, &c.BackBtn, "< Back").Layout(gtx)
-						}),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							h2 := material.H4(s.Theme, "New Seal")
-							h2.Color = ColorPrimary
-							return h2.Layout(gtx)
-						}),
-						layout.Rigid(layout.Spacer{Width: unit.Dp(100)}.Layout),
-					)
-				},
-			)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Left: unit.Dp(100), Right: unit.Dp(100)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			return layout.Inset{
+				Top: unit.Dp(20), Bottom: unit.Dp(16),
+				Left: unit.Dp(32), Right: unit.Dp(32),
+			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						ed := material.Editor(s.Theme, &c.Title, "Memory Title")
-						ed.TextSize = unit.Sp(24)
-						return ed.Layout(gtx)
+						btn := material.Button(s.Theme, &c.BackBtn, "← 戻る")
+						btn.Background = ColorSurfaceHigh
+						btn.Color = ColorTextDim
+						return btn.Layout(gtx)
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						h2 := material.H4(s.Theme, "記憶の封印")
+						h2.Color = ColorPrimary
+						return h2.Layout(gtx)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(80)}.Layout),
+				)
+			})
+		}),
+		// 区切り線
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(1))
+			paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(image.Rectangle{Max: size}).Op())
+			return layout.Dimensions{Size: size}
+		}),
+		// 本文エリア
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{
+				Left: unit.Dp(80), Right: unit.Dp(80),
+				Top: unit.Dp(32), Bottom: unit.Dp(32),
+			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					// タイトル
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return s.labeledField(gtx, "タイトル", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Title, "この記憶のタイトルを入力…")
+							ed.TextSize = unit.Sp(22)
+							ed.Color = ColorText
+							return ed.Layout(gtx)
+						})
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+					// 本文
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						ed := material.Editor(s.Theme, &c.Body, "What memory do you want to seal?")
-						return ed.Layout(gtx)
+						return s.labeledField(gtx, "本文（封印後は読めません）", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Body, "未来の自分へ伝えたいことを書いてください…")
+							ed.Color = ColorText
+							return ed.Layout(gtx)
+						})
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+					// 開封条件行
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{}.Layout(gtx,
+							// 開封日数
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return material.Label(s.Theme, unit.Sp(12), "Unlock in (days)").Layout(gtx)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return material.Editor(s.Theme, &c.UnlockDays, "36500").Layout(gtx)
-									}),
-								)
+								return s.labeledField(gtx, "開封可能まで（日数）", func(gtx layout.Context) layout.Dimensions {
+									ed := material.Editor(s.Theme, &c.UnlockDays, "36500")
+									ed.Color = ColorPrimary
+									return ed.Layout(gtx)
+								})
 							}),
-							layout.Rigid(layout.Spacer{Width: unit.Dp(20)}.Layout),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(24)}.Layout),
+							// パスフレーズ
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return material.Label(s.Theme, unit.Sp(12), "Passphrase").Layout(gtx)
-									}),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										ed := material.Editor(s.Theme, &c.Passphrase, "Secret Phrases")
-										// Password filtering would be here
-										return ed.Layout(gtx)
-									}),
-								)
+								return s.labeledField(gtx, "封印パスフレーズ", func(gtx layout.Context) layout.Dimensions {
+									ed := material.Editor(s.Theme, &c.Passphrase, "秘密の合言葉…")
+									ed.Color = ColorPrimary
+									return ed.Layout(gtx)
+								})
 							}),
 						)
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
+					// 封印ボタン
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := material.Button(s.Theme, &c.SealBtn, "SEAL INTO THE VAULT")
-						btn.TextSize = unit.Sp(20)
+						btn := material.Button(s.Theme, &c.SealBtn, "この記憶を封印する")
+						btn.TextSize = unit.Sp(18)
 						btn.Background = ColorPrimary
+						btn.Color = ColorBackground
 						return btn.Layout(gtx)
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						hint := material.Caption(s.Theme, "封印後は、条件を満たすまで中身を読むことはできません。")
+						hint.Color = ColorTextDim
+						return hint.Layout(gtx)
+					}),
 				)
 			})
+		}),
+	)
+}
+
+// labeledField はラベル＋下線付きフィールドを描画するヘルパー
+func (s *AppState) labeledField(gtx layout.Context, label string, field func(layout.Context) layout.Dimensions) layout.Dimensions {
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Caption(s.Theme, label)
+			lbl.Color = ColorPrimaryDim
+			return lbl.Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
+		layout.Rigid(field),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
+		// 下線
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(1))
+			paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(image.Rectangle{Max: size}).Op())
+			return layout.Dimensions{Size: size}
 		}),
 	)
 }
