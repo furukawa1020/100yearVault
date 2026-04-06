@@ -26,10 +26,12 @@ import (
 
 func main() {
 	go func() {
-		w := app.NewWindow(
-			app.Title("Hundred-Year Vault"),
-			app.Size(unit.Dp(1000), unit.Dp(800)),
-		)
+		log.Println("【DEBUG】Goroutine Started")
+		w := new(app.Window)
+		w.Option(app.Title("Hundred-Year Vault"))
+		w.Option(app.Size(unit.Dp(1000), unit.Dp(800)))
+		
+		log.Println("【DEBUG】Window Created, Entering Loop")
 		if err := loop(w); err != nil {
 			log.Fatal(err)
 		}
@@ -39,6 +41,7 @@ func main() {
 }
 
 func loop(w *app.Window) error {
+	log.Println("【DEBUG】Entering Loop Function")
 	// Initialize Store
 	dbPath := filepath.Join(".", "vault.db")
 	store, err := db.NewStore(dbPath)
