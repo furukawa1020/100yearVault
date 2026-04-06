@@ -61,8 +61,8 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 					
 					// 本文
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return s.labeledField(gtx, "今、伝えたいこと (MESSAGE)", func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(s.Theme, &c.Body, "ここに指を置いて話すように書いてください...")
+						return s.labeledField(gtx, "今、伝えたいこと (MESSAGE) ※端末の音声入力も使えます", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Body, "ここに指を置いて、話すようにお書きください...")
 							ed.TextSize = unit.Sp(56)
 							ed.Color = ColorText
 							return ed.Layout(gtx)

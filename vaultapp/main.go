@@ -57,23 +57,18 @@ func loop(w *app.Window) error {
 	}
 	state.Compose.UnlockDays.SetText("36500")
 
-	// EEP v2126: Neural Echoes (百年の残響)
-	var hints []string
-	for _, v := range vaults {
-		if v.State == vault.StateOpened && v.PreviewHint != "" {
-			hints = append(hints, v.PreviewHint)
+	state.RotateLantern()
+
+	// 自動巡回ループ
+	go func() {
+		for {
+			time.Sleep(5 * time.Second) // 5秒ごとに記憶が巡る
+			if state.CurrentScreen == ui.ScreenVaultList {
+				state.RotateLantern()
+				w.Invalidate()
+			}
 		}
-	}
-	if len(hints) > 0 {
-		h := hints[rand.Intn(len(hints))]
-		if len(h) > 10 {
-			state.DailyFragment = h[:10] + "..."
-		} else {
-			state.DailyFragment = h
-		}
-	} else {
-		state.DailyFragment = "今日を、未来に灯しましょう。"
-	}
+	}()
 
 	var ops op.Ops
 	for {
@@ -108,14 +103,17 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		w.Invalidate()
 	}
 
-	// List Screen Logic
+	// List Screen Logic (Lantern Mode)
 	if state.CurrentScreen == ui.ScreenVaultList {
-		for i := range state.SelectBtns {
-			if state.SelectBtns[i].Clicked(gtx) {
-				v := state.Vaults[i]
-				state.Ritual.ActiveVault = v
-				state.CurrentScreen = ui.ScreenRitual
-				w.Invalidate()
+		if state.LanternBtn.Clicked(gtx) {
+			if state.LanternVault != nil {
+				// 開封可能・または既に開封済みの場合、Ritual画面へ遷移
+				v := state.LanternVault
+				if v.State == vault.StateOpened || time.Now().After(v.UnlockAt) {
+					state.Ritual.ActiveVault = v
+					state.CurrentScreen = ui.ScreenRitual
+					w.Invalidate()
+				}
 			}
 		}
 	}
@@ -305,8 +303,8 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 							state.Ritual.RevealedText = fullText
 							state.Ritual.Password.SetText("") 
 							
-							// 2126 RESONANCE: Update dashboard fragment
-							state.DailyFragment = v.PreviewHint
+							// 2126 RESONANCE: Update state and rotate
+							state.RotateLantern()
 
 							// リストの同期
 							state.Vaults, _ = store.ListVaults()
