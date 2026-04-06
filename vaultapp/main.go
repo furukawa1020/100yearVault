@@ -171,13 +171,20 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 							}
 							store.SaveLayer(l)
 						} else {
-							// 新規Vaultの作成
-							// Parse days (only for new vaults)
+							// 新規Vaultの作成 (時空への放流)
 							days, _ := strconv.ParseFloat(daysInput, 64)
 							if days <= 0 {
 								days = 36500 
 							}
-							unlockAt := time.Now().Add(time.Duration(days * 24 * 60 * 60 * float64(time.Second)))
+
+							// 2126年 QSP: 到着日の方流化 (ランダム性)
+							// 1分後から指定日数の間でランダムに漂着
+							maxSeconds := days * 24 * 60 * 60
+							randomSeconds := float64(time.Now().UnixNano()%int64(maxSeconds))
+							// デモ用に短縮（最大30分など）する場合:
+							// randomSeconds = float64(time.Now().UnixNano() % (30 * 60))
+							
+							unlockAt := time.Now().Add(time.Duration(randomSeconds * float64(time.Second)))
 
 							v := &vault.Vault{
 								ID:                vid,
@@ -185,8 +192,9 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 								State:             vault.StateSealed,
 								CreatedAt:         time.Now(),
 								UnlockAt:          unlockAt,
-								CipherPath:        cipherPath, // 最初の層として保存
+								CipherPath:        cipherPath,
 								RequirePassphrase: true,
+								PreviewHint:       body, // 後のキメラ合成用にヒントとして保持
 							}
 							store.SaveVault(v)
 						}
