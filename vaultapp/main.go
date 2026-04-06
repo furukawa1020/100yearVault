@@ -169,6 +169,13 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 						state.Compose.ErrorMessage = "ファイルの保存に失敗しました。"
 						w.Invalidate()
 					} else {
+						if state.Compose.AddLayerMode && state.Compose.TargetVault != nil {
+							l := &vault.Layer{
+								ID:         layerID,
+								ParentID:   vid,
+								CipherPath: cipherPath,
+								CreatedAt:  time.Now(),
+							}
 							if err := store.SaveLayer(l); err != nil {
 								log.Printf("STP LAYER SAVE ERROR: %v", err)
 								state.Compose.ErrorMessage = "地層の保存に失敗しました。"
@@ -186,8 +193,6 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 							// 1分後から指定日数の間でランダムに漂着
 							maxSeconds := days * 24 * 60 * 60
 							randomSeconds := float64(time.Now().UnixNano()%int64(maxSeconds))
-							// デモ用に短縮（最大30分など）する場合:
-							// randomSeconds = float64(time.Now().UnixNano() % (30 * 60))
 							
 							unlockAt := time.Now().Add(time.Duration(randomSeconds * float64(time.Second)))
 
@@ -199,7 +204,7 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 								UnlockAt:          unlockAt,
 								CipherPath:        cipherPath,
 								RequirePassphrase: true,
-								PreviewHint:       body, // 後のキメラ合成用にヒントとして保持
+								PreviewHint:       body, 
 							}
 							if err := store.SaveVault(v); err != nil {
 								log.Printf("QSP VAULT SAVE ERROR: %v", err)
