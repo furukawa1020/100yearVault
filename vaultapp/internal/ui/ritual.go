@@ -128,38 +128,50 @@ func (s *AppState) layoutRitualInput(gtx layout.Context, r *RitualState) layout.
 				})
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(32)}.Layout),
-			// ボタン
+			// 2126年標準: 量子トンネル表示
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				btnLabel := "封印を解く"
 				if isLocked {
-					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Caption(s.Theme, "開封条件が未達成ですが、新たな記憶を重ねることは可能です。")
-							lbl.Color = ColorTextDim
-							return lbl.Layout(gtx)
-						}),
-						layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							btn := material.Button(s.Theme, &r.AddLayerBtn, "+ 記憶を重ねる (Add Layer)")
-							btn.Background = ColorSurfaceHigh
-							btn.Color = ColorPrimary
-							return btn.Layout(gtx)
-						}),
-					)
+					btnLabel = "量子トンネルで強制解凍 (TUNNELING)"
 				}
-				btn := material.Button(s.Theme, &r.UnlockBtn, "封印を解く")
-				btn.Background = ColorPrimary
-				btn.Color = ColorBackground
-				btn.TextSize = unit.Sp(16)
-				dim := btn.Layout(gtx)
 				
-				if r.ErrorMessage != "" {
-					layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						lbl := material.Caption(s.Theme, r.ErrorMessage)
-						lbl.Color = ColorDanger
-						return layout.Inset{Top: unit.Dp(40)}.Layout(gtx, lbl.Layout)
-					})
-				}
-				return dim
+				return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+					// メインアクション
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						btn := material.Button(s.Theme, &r.UnlockBtn, btnLabel)
+						btn.Background = ColorPrimary
+						btn.Color = ColorBackground
+						btn.TextSize = unit.Sp(18)
+						dim := btn.Layout(gtx)
+						
+						if r.ErrorMessage != "" {
+							layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Caption(s.Theme, r.ErrorMessage)
+								lbl.Color = ColorDanger
+								return layout.Inset{Top: unit.Dp(45)}.Layout(gtx, lbl.Layout)
+							})
+						}
+						return dim
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+					// 追記
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						btn := material.Button(s.Theme, &r.AddLayerBtn, "+ 記憶を重ねる (Add Layer)")
+						btn.Background = ColorSurfaceHigh
+						btn.Color = ColorPrimary
+						return btn.Layout(gtx)
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						desc := "※時間不整合を検知。量子トンネルによる同期が推奨されます。"
+						if !isLocked {
+							desc = "※時が満ちました。安定した同期が可能です。"
+						}
+						lbl := material.Caption(s.Theme, desc)
+						lbl.Color = ColorTextDim
+						return lbl.Layout(gtx)
+					}),
+				)
 			}),
 		)
 	})
