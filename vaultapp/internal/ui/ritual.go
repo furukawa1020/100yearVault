@@ -27,6 +27,7 @@ type RitualState struct {
 	// 開封後のメッセージ表示
 	RevealedText string
 	IsRevealed   bool
+	ErrorMessage string
 }
 
 func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimensions {
@@ -137,7 +138,16 @@ func (s *AppState) layoutRitualInput(gtx layout.Context, r *RitualState) layout.
 				btn.Background = ColorPrimary
 				btn.Color = ColorBackground
 				btn.TextSize = unit.Sp(16)
-				return btn.Layout(gtx)
+				dim := btn.Layout(gtx)
+				
+				if r.ErrorMessage != "" {
+					layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Caption(s.Theme, r.ErrorMessage)
+						lbl.Color = ColorDanger
+						return layout.Inset{Top: unit.Dp(40)}.Layout(gtx, lbl.Layout)
+					})
+				}
+				return dim
 			}),
 		)
 	})
