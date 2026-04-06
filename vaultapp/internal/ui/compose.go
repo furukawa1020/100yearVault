@@ -32,112 +32,65 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 	fillBackground(gtx, ColorBackground)
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		// ヘッダー
+		// ヘッダー（戻るボタンを巨大化）
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{
-				Top: unit.Dp(20), Bottom: unit.Dp(16),
-				Left: unit.Dp(32), Right: unit.Dp(32),
-			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := material.Button(s.Theme, &c.BackBtn, "← 戻る")
-						btn.Background = ColorSurfaceHigh
-						btn.Color = ColorTextDim
-						return btn.Layout(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						title := "残響の刻印"
-						if c.AddLayerMode && c.TargetVault != nil {
-							title = "残響の同調: " + c.TargetVault.Title
-						}
-						h2 := material.H4(s.Theme, title)
-						h2.Color = ColorPrimary
-						return h2.Layout(gtx)
-					}),
-					layout.Rigid(layout.Spacer{Width: unit.Dp(80)}.Layout),
-				)
+			return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				btn := material.Button(s.Theme, &c.BackBtn, "← やめる (CANCEL)")
+				btn.Background = ColorSurfaceHigh
+				btn.Color = ColorTextDim
+				btn.TextSize = unit.Sp(32)
+				btn.Inset = layout.Inset{Top: unit.Dp(20), Bottom: unit.Dp(20), Left: unit.Dp(40), Right: unit.Dp(40)}
+				return btn.Layout(gtx)
 			})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(2))
-			paint.FillShape(gtx.Ops, ColorPrimary, clip.Rect(image.Rectangle{Max: size}).Op())
-			return layout.Dimensions{Size: size}
-		}),
-		// 本文エリア
+		
+		// 入力エリア（スクロール可能な巨大フィールド）
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{
-				Left: unit.Dp(80), Right: unit.Dp(80),
-				Top: unit.Dp(32), Bottom: unit.Dp(32),
-			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(40)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					// タイトル
+					// タイトル（宛先）
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return s.labeledField(gtx, "タイトル", func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(s.Theme, &c.Title, "この記憶のタイトルを入力…")
-							ed.TextSize = unit.Sp(22)
-							ed.Color = ColorText
+						return s.labeledField(gtx, "どなたへの想いですか？ (TO)", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Title, "未来の自分へ...")
+							ed.TextSize = unit.Sp(48)
+							ed.Color = ColorPrimary
 							return ed.Layout(gtx)
 						})
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(60)}.Layout),
+					
 					// 本文
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return s.labeledField(gtx, "本文（封印後は読めません）", func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(s.Theme, &c.Body, "未来の自分へ伝えたいことを書いてください…")
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return s.labeledField(gtx, "今、伝えたいこと (MESSAGE)", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Body, "ここに指を置いて話すように書いてください...")
+							ed.TextSize = unit.Sp(56)
 							ed.Color = ColorText
 							return ed.Layout(gtx)
 						})
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
-					// 開封条件行
+					layout.Rigid(layout.Spacer{Height: unit.Dp(80)}.Layout),
+
+					// 封印ボタン（画面最下部に巨大配置）
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{}.Layout(gtx,
-							// 開封日数
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return s.labeledField(gtx, "開封可能まで（日数）", func(gtx layout.Context) layout.Dimensions {
-									ed := material.Editor(s.Theme, &c.UnlockDays, "36500")
-									ed.Color = ColorPrimary
-									return ed.Layout(gtx)
-								})
-							}),
-							layout.Rigid(layout.Spacer{Width: unit.Dp(24)}.Layout),
-							// パスフレーズ
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return s.labeledField(gtx, "封印パスフレーズ", func(gtx layout.Context) layout.Dimensions {
-									ed := material.Editor(s.Theme, &c.Passphrase, "秘密の合言葉…")
-									ed.Color = ColorPrimary
-									return ed.Layout(gtx)
-								})
-							}),
-						)
-					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
-					// 封印ボタン
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						label := "星図にこの残響を刻印する (ETCH)"
+						label := "想いを灯す (ETCH)"
 						if c.AddLayerMode {
-							label = "残響を同期させる (SYNC)"
+							label = "想いを重ねる (SYNC)"
 						}
 						btn := material.Button(s.Theme, &c.SealBtn, label)
-						btn.TextSize = unit.Sp(18)
 						btn.Background = ColorPrimary
 						btn.Color = ColorBackground
+						btn.TextSize = unit.Sp(48)
+						btn.Inset = layout.Inset{Top: unit.Dp(50), Bottom: unit.Dp(50)}
 						dim := btn.Layout(gtx)
 						
 						if c.ErrorMessage != "" {
 							layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								lbl := material.Caption(s.Theme, c.ErrorMessage)
+								lbl := material.H6(s.Theme, c.ErrorMessage)
 								lbl.Color = ColorDanger
-								return layout.Inset{Top: unit.Dp(40)}.Layout(gtx, lbl.Layout)
+								return layout.Inset{Top: unit.Dp(60)}.Layout(gtx, lbl.Layout)
 							})
 						}
 						return dim
-					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						hint := material.Caption(s.Theme, "封印後は、条件を満たすまで中身を読むことはできません。")
-						hint.Color = ColorTextDim
-						return hint.Layout(gtx)
 					}),
 				)
 			})
@@ -145,20 +98,20 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 	)
 }
 
-// labeledField はラベル＋下線付きフィールドを描画するヘルパー
+// labeledField は 100 歳用：巨大ラベル＋下線
 func (s *AppState) labeledField(gtx layout.Context, label string, field func(layout.Context) layout.Dimensions) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Caption(s.Theme, label)
+			lbl := material.H6(s.Theme, label)
 			lbl.Color = ColorPrimaryDim
+			lbl.TextSize = unit.Sp(32)
 			return lbl.Layout(gtx)
 		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
 		layout.Rigid(field),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
-		// 2126年標準: 琥珀の境界線
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(2))
+			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(4))
 			paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Rect(image.Rectangle{Max: size}).Op())
 			return layout.Dimensions{Size: size}
 		}),
