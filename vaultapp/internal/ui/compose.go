@@ -35,9 +35,9 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 		// ヘッダー（戻るボタンを巨大化）
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(s.Theme, &c.BackBtn, "← 景色へもどる")
+				btn := material.Button(s.Theme, &c.BackBtn, "← RETURN_TO_VOID")
 				btn.Background = ColorSurfaceHigh
-				btn.Color = ColorTextDim
+				btn.Color = ColorPrimary
 				btn.TextSize = unit.Sp(32)
 				btn.Inset = layout.Inset{Top: unit.Dp(20), Bottom: unit.Dp(20), Left: unit.Dp(40), Right: unit.Dp(40)}
 				return btn.Layout(gtx)
@@ -50,8 +50,8 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					// タイトル（宛先）
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return s.labeledField(gtx, "どなたへの想いですか？ (TO)", func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(s.Theme, &c.Title, "未来の自分へ...")
+						return s.labeledField(gtx, "IDENTIFY_TARGET_UID", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Title, "UID_UNKNOWN...")
 							ed.TextSize = unit.Sp(48)
 							ed.Color = ColorPrimary
 							return ed.Layout(gtx)
@@ -61,8 +61,8 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 					
 					// 本文
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return s.labeledField(gtx, "いま、ここにある想い (VOICE OK)", func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(s.Theme, &c.Body, "そっと指を置いて、話すようにお聞かせください...")
+						return s.labeledField(gtx, "UPLINK_DATA_FRAGMENT", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Body, "INPUT_STREAM_PENDING...")
 							ed.TextSize = unit.Sp(56)
 							ed.Color = ColorText
 							return ed.Layout(gtx)
@@ -72,9 +72,9 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 
 					// 封印ボタン（画面最下部に巨大配置）
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						label := "想いを永い眠りにつかせる (ETCH)"
+						label := "INITIATE_STOWAGE_SEQUENCE"
 						if c.AddLayerMode {
-							label = "今の想いを重ねる (SYNC)"
+							label = "SYNCHRONIZE_FRAGMENT_LAYERS"
 						}
 						btn := material.Button(s.Theme, &c.SealBtn, label)
 						btn.Background = ColorPrimary

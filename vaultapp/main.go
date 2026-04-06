@@ -56,14 +56,23 @@ func loop(w *app.Window) error {
 	}
 	state.Compose.UnlockDays.SetText("36500")
 
-	state.RotateEcho()
+	state.RotateNeural()
 
-	// 自動巡回ループ (100歳の呼吸に合わせた穏やかな間隔)
+	// アニメーション・クロック (常時演算)
 	go func() {
 		for {
-			time.Sleep(10 * time.Second) // 10秒ごとに記憶が静かに巡る
+			time.Sleep(16 * time.Millisecond) // 約60FPSで演算更新
+			state.Rotation += 0.02
+			w.Invalidate()
+		}
+	}()
+	
+	// データ巡回ループ
+	go func() {
+		for {
+			time.Sleep(15 * time.Second) // 15秒ごとにデータを再構成
 			if state.CurrentScreen == ui.ScreenVaultList {
-				state.RotateEcho()
+				state.RotateNeural()
 				w.Invalidate()
 			}
 		}
@@ -80,10 +89,10 @@ func loop(w *app.Window) error {
 			// Logic Handling
 			updateLogic(gtx, state, store, w)
 
-			// Main Layout (心の風景)
+			// Main Layout (Neural Interface)
 			switch state.CurrentScreen {
 			case ui.ScreenVaultList:
-				state.LayoutEcho(gtx)
+				state.LayoutNeural(gtx)
 			case ui.ScreenCompose:
 				state.LayoutCompose(gtx, &state.Compose)
 			case ui.ScreenRitual:
@@ -102,12 +111,11 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		w.Invalidate()
 	}
 
-	// Echo Mode Logic (心の風景)
+	// Neural Void Logic (ハード・サイバー)
 	if state.CurrentScreen == ui.ScreenVaultList {
-		if state.EchoSurface.Clicked(gtx) {
-			if state.EchoVault != nil {
-				// 刻が満ちているか、既に開封済みの場合は「儀式」へ
-				v := state.EchoVault
+		if state.NeuralSurface.Clicked(gtx) {
+			if state.NeuralVault != nil {
+				v := state.NeuralVault
 				if v.State == vault.StateOpened || time.Now().After(v.UnlockAt) {
 					state.Ritual.ActiveVault = v
 					state.CurrentScreen = ui.ScreenRitual
@@ -303,7 +311,7 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 							state.Ritual.Password.SetText("") 
 							
 							// 2126 RESONANCE: Update state and rotate
-							state.RotateEcho()
+							state.RotateNeural()
 
 							// リストの同期
 							state.Vaults, _ = store.ListVaults()
