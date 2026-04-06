@@ -46,12 +46,12 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 						return btn.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						title := "記憶の封印"
+						title := "時空への放流"
 						if c.AddLayerMode && c.TargetVault != nil {
-							title = "記憶の追記: " + c.TargetVault.Title
+							title = "地層の重合: " + c.TargetVault.Title
 						}
 						h2 := material.H4(s.Theme, title)
-						h2.Color = ColorPrimary
+						h2.Color = ColorGlow1
 						return h2.Layout(gtx)
 					}),
 					layout.Rigid(layout.Spacer{Width: unit.Dp(80)}.Layout),
@@ -114,13 +114,13 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 					layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
 					// 封印ボタン
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						label := "この記憶を封印する"
+						label := "時空の海へ放流する (RELEASE)"
 						if c.AddLayerMode {
-							label = "この地層を重ねる (Add Layer)"
+							label = "この地層を同期させる (SYNC)"
 						}
 						btn := material.Button(s.Theme, &c.SealBtn, label)
 						btn.TextSize = unit.Sp(18)
-						btn.Background = ColorPrimary
+						btn.Background = ColorGlow1
 						btn.Color = ColorBackground
 						dim := btn.Layout(gtx)
 						
@@ -156,10 +156,10 @@ func (s *AppState) labeledField(gtx layout.Context, label string, field func(lay
 		layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
 		layout.Rigid(field),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
-		// 2126年標準: 堅牢な境界線
+		// 2126年標準: 熵の境界線
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(2)) // 太さを2dpに
-			paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Rect(image.Rectangle{Max: size}).Op())
+			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(2))
+			paint.FillShape(gtx.Ops, ColorGlow0, clip.Rect(image.Rectangle{Max: size}).Op())
 			return layout.Dimensions{Size: size}
 		}),
 	)
