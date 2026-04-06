@@ -128,11 +128,11 @@ func (s *AppState) layoutRitualInput(gtx layout.Context, r *RitualState) layout.
 				})
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(32)}.Layout),
-			// 2126年標準: 量子トンネル表示
+			// 2126年標準: 深層同調 (Resonance)
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				btnLabel := "封印を解く"
+				btnLabel := "残響への同調 (ALIGN)"
 				if isLocked {
-					btnLabel = "量子トンネルで強制解凍 (TUNNELING)"
+					btnLabel = "深層同調 (DEEP RESONANCE)"
 				}
 				
 				return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
@@ -154,18 +154,18 @@ func (s *AppState) layoutRitualInput(gtx layout.Context, r *RitualState) layout.
 						return dim
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
-					// 追記
+					// 残響の重畳
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := material.Button(s.Theme, &r.AddLayerBtn, "+ 記憶を重ねる (Add Layer)")
+						btn := material.Button(s.Theme, &r.AddLayerBtn, "+ 残響を重ねる (Add Echo)")
 						btn.Background = ColorSurfaceHigh
 						btn.Color = ColorPrimary
 						return btn.Layout(gtx)
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						desc := "※時間不整合を検知。量子トンネルによる同期が推奨されます。"
+						desc := "※意識の距離を測定中。深層同調によるアクセスが可能。 "
 						if !isLocked {
-							desc = "※時が満ちました。安定した同期が可能です。"
+							desc = "※波長が一致しました。安定した同調が確保されています。"
 						}
 						lbl := material.Caption(s.Theme, desc)
 						lbl.Color = ColorTextDim
@@ -210,13 +210,13 @@ func (s *AppState) layoutLockedInfo(gtx layout.Context, remaining time.Duration)
 func (s *AppState) layoutUnlockableInfo(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lbl := material.H5(s.Theme, "琥珀の解凍準備が整っています")
+			lbl := material.H5(s.Theme, "思考の波長が同調しています")
 			lbl.Color = ColorPrimary
 			return lbl.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lbl := material.Caption(s.Theme, "パスフレーズを入力して封印を解いてください")
+			lbl := material.Caption(s.Theme, "合言葉により、残響の解像度を復元してください")
 			lbl.Color = ColorTextDim
 			return lbl.Layout(gtx)
 		}),
