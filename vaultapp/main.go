@@ -68,12 +68,12 @@ func loop(w *app.Window) error {
 	if len(hints) > 0 {
 		h := hints[rand.Intn(len(hints))]
 		if len(h) > 10 {
-			state.DailyFragment = h[:10] + "... が 思考の星図で瞬いている。"
+			state.DailyFragment = h[:10] + "..."
 		} else {
-			state.DailyFragment = h + " ── 永遠に響く残響。"
+			state.DailyFragment = h
 		}
 	} else {
-		state.DailyFragment = "あなたの星図はまだ空白です。最初の残響を刻みなさい。"
+		state.DailyFragment = "今日を、未来に灯しましょう。"
 	}
 
 	var ops op.Ops

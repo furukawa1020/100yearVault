@@ -13,16 +13,16 @@ import (
 )
 
 var (
-	// 2126年標準: 百年の残響規格 (EEP) 用パレット
-	ColorBackground  = color.NRGBA{R: 2, G: 5, B: 12, A: 255}    // 深宇宙の紺碧 (Midnight Echo)
-	ColorSurface     = color.NRGBA{R: 10, G: 15, B: 30, A: 255}   // 思考の深淵 (Neural Void)
-	ColorSurfaceHigh = color.NRGBA{R: 25, G: 35, B: 60, A: 255}   // 銀河の縁 (Galactic Rim)
-	ColorPrimary     = color.NRGBA{R: 192, G: 200, B: 220, A: 255} // 流体シルバー (Liquid Silver)
-	ColorPrimaryDim  = color.NRGBA{R: 100, G: 120, B: 160, A: 255} // 星屑の灰 (Stardust Ash)
-	ColorText        = color.NRGBA{R: 255, G: 255, B: 255, A: 255} // 純粋な光 (Pure Echo)
-	ColorTextDim     = color.NRGBA{R: 150, G: 170, B: 200, A: 255} // 遠い記憶の光 (Distant Star)
-	ColorLocked      = color.NRGBA{R: 15, G: 25, B: 45, A: 255}   // 未同調の沈黙
-	ColorDanger      = color.NRGBA{R: 255, G: 80, B: 100, A: 255}  // 生命の臨界 (Critical Pulse)
+	// 2126年標準: 百年の灯火 (Zero-UI) 用パレット
+	ColorBackground  = color.NRGBA{R: 0, G: 4, B: 17, A: 255}    // 深い夜空 (Deep Midnight)
+	ColorSurface     = color.NRGBA{R: 5, G: 10, B: 30, A: 255}    // 闇の帳
+	ColorSurfaceHigh = color.NRGBA{R: 20, G: 30, B: 60, A: 255}   // 遠い銀河
+	ColorPrimary     = color.NRGBA{R: 255, G: 215, B: 0, A: 255}  // 太陽の金 (Sunlight Amber)
+	ColorPrimaryDim  = color.NRGBA{R: 180, G: 150, B: 0, A: 255}  // 燻る残り火
+	ColorText        = color.NRGBA{R: 255, G: 250, B: 240, A: 255} // 純白の光 (High Contrast)
+	ColorTextDim     = color.NRGBA{R: 200, G: 200, B: 180, A: 255} // 温かな記憶
+	ColorLocked      = color.NRGBA{R: 10, G: 10, B: 20, A: 255}   // 静寂
+	ColorDanger      = color.NRGBA{R: 255, G: 50, B: 50, A: 255}   // 鼓動 (Pulse)
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
