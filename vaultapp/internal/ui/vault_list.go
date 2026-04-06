@@ -38,6 +38,10 @@ type AppState struct {
 	NewVaultBtn widget.Clickable
 	VaultList   layout.List
 	SelectBtns  []widget.Clickable
+
+	// 2126年標準: CPP 用拡張画面
+	DailyFragment    string
+	ConnectionStatus string
 }
 
 // ───────────────────────────────────────────────
@@ -55,27 +59,29 @@ func (s *AppState) LayoutList(gtx layout.Context) layout.Dimensions {
 	fillBackground(gtx, ColorBackground)
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		// ヘッダー
+		// 2126年標準: ダッシュボード・ヘッダー
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.layoutHeader(gtx)
+			return s.layoutDashboardHeader(gtx)
 		}),
-		// 区切り線
+		// 本日の共鳴 (Daily Fragment)
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.layoutDivider(gtx)
+			if s.DailyFragment != "" {
+				return s.layoutDailyFragment(gtx)
+			}
+			return layout.Dimensions{}
 		}),
-		// リスト本体
+		layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+		// 保管庫本体（地層の重なり）
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			if len(s.Vaults) == 0 {
 				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Body1(s.Theme, "保管庫は空です。最初の記憶を封印してください。")
+					lbl := material.H5(s.Theme, "記憶の種はまだ蒔かれていません。")
 					lbl.Color = ColorTextDim
 					return lbl.Layout(gtx)
 				})
 			}
-			return layout.Inset{Top: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return s.VaultList.Layout(gtx, len(s.Vaults), func(gtx layout.Context, i int) layout.Dimensions {
-					return s.layoutVaultItem(gtx, i, s.Vaults[i])
-				})
+			return s.VaultList.Layout(gtx, len(s.Vaults), func(gtx layout.Context, i int) layout.Dimensions {
+				return s.layoutVaultItem(gtx, i, s.Vaults[i])
 			})
 		}),
 	)
