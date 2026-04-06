@@ -13,15 +13,15 @@ import (
 )
 
 var (
-	// 「電脳領域の特異点 (Neural Singularity v6.0)」パレット
+	// 「電脳領域の特異点 (Neural Singularity v7.0) - FINAL」パレット
 	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 真・漆黒 (Absolute Void)
 	ColorSurface     = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 深淵
-	ColorSurfaceHigh = color.NRGBA{R: 0, G: 40, B: 50, A: 255}    // 境界面
-	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255}  // ネオンシアン (Neural Blue)
-	ColorSecondary   = color.NRGBA{R: 0, G: 180, B: 255, A: 255}  // パルスブルー
-	ColorPrimaryDim  = color.NRGBA{R: 0, G: 100, B: 120, A: 255}  // 暗い信号
-	ColorText        = color.NRGBA{R: 220, G: 255, B: 255, A: 255} // 高輝度データ
-	ColorTextDim     = color.NRGBA{R: 0, G: 150, B: 180, A: 255}  // 背景データ
+	ColorSurfaceHigh = color.NRGBA{R: 0, G: 20, B: 40, A: 255}    // 境界面
+	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255}  // ネオンシアン (Atomic Blue)
+	ColorSecondary   = color.NRGBA{R: 0, G: 200, B: 255, A: 255}  // パルスブルー
+	ColorPrimaryDim  = color.NRGBA{R: 0, G: 120, B: 150, A: 255}  // 暗い信号
+	ColorText        = color.NRGBA{R: 255, G: 255, B: 255, A: 255} // 高輝度ホワイト
+	ColorTextDim     = color.NRGBA{R: 0, G: 180, B: 200, A: 255}  // 背景データ
 	ColorLocked      = color.NRGBA{R: 0, G: 0, B: 0, A: 255}      // NULL_STATE
 	ColorDanger      = color.NRGBA{R: 255, G: 0, B: 0, A: 255}     // SYSTEM_ERROR
 )

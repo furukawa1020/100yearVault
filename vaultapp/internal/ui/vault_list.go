@@ -30,9 +30,10 @@ const (
 )
 
 type Particle struct {
-	X, Y, Z    float32
-	VX, VY, VZ float32
-	Life       float32
+	BaseX, BaseY, BaseZ float32 // 初期配置 (非破壊)
+	X, Y, Z             float32 // 計算後の投影用
+	VX, VY, VZ          float32 // 反応的なオフセット
+	Life                float32
 }
 
 type AppState struct {
@@ -78,13 +79,13 @@ func (s *AppState) initNeuralSpace() {
 		distZ := 200 + rand.Float64()*600
 		
 		s.Particles[i] = Particle{
-			X: float32(math.Sin(angle2)*math.Cos(angle1) * distX),
-			Y: float32(math.Sin(angle2)*math.Sin(angle1) * distY),
-			Z: float32(math.Cos(angle2) * distZ),
-			VX: float32(rand.NormFloat64() * 0.1),
-			VY: float32(rand.NormFloat64() * 0.1),
-			VZ: float32(rand.NormFloat64() * 0.1),
-			Life: rand.Float32(),
+			BaseX: float32(math.Sin(angle2)*math.Cos(angle1) * distX),
+			BaseY: float32(math.Sin(angle2)*math.Sin(angle1) * distY),
+			BaseZ: float32(math.Cos(angle2) * distZ),
+			VX:    float32(rand.NormFloat64() * 0.1),
+			VY:    float32(rand.NormFloat64() * 0.1),
+			VZ:    float32(rand.NormFloat64() * 0.1),
+			Life:  rand.Float32(),
 		}
 	}
 	s.InitOnce = true
@@ -135,38 +136,39 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 				focalLength := float32(900) // 焦点距離
 				
-				// A. 4096 粒子 3D シミュレーション
+				// A. 4096 粒子 3D シミュレーション (非破壊マトリクス)
 				for i := range s.Particles {
 					p := &s.Particles[i]
 					
-					// 3D 回転 (X軸 & Y軸)
-					rotX, rotY := 0.005, 0.012
+					// 3D 回転マトリクス (AppState.Rotation に同期)
+					rotX, rotY := float64(s.Rotation*0.2), float64(s.Rotation*0.5)
 					sinX, cosX := float32(math.Sin(rotX)), float32(math.Cos(rotX))
 					sinY, cosY := float32(math.Sin(rotY)), float32(math.Cos(rotY))
 					
+					// BaseX/Y/Z から非破壊で計算
 					// Y軸回転
-					nx := p.X*cosY - p.Z*sinY
-					nz := p.X*sinY + p.Z*cosY
-					p.X, p.Z = nx, nz
+					tx := p.BaseX*cosY - p.BaseZ*sinY
+					tz := p.BaseX*sinY + p.BaseZ*cosY
 					// X軸回転
-					ny := p.Y*cosX - p.Z*sinX
-					nz = p.Y*sinX + p.Z*cosX
-					p.Y, p.Z = ny, nz
+					ty := p.BaseY*cosX - tz*sinX
+					tz = p.BaseY*sinX + tz*cosX
 
-					// マウスインタラクション (3D 斥力)
+					// マウスインタラクションによる一時的オフセット
+					p.VX *= 0.95
+					p.VY *= 0.95
+					p.X = tx + p.VX
+					p.Y = ty + p.VY
+					p.Z = tz
+
+					// マウス斥力演算
 					dx := p.X - (s.MousePos.X - center.X)
 					dy := p.Y - (s.MousePos.Y - center.Y)
 					distSq := dx*dx + dy*dy
-					if distSq < 15000 {
-						force := (15000 - distSq) / 15000
-						p.VX += dx * force * 0.15
-						p.VY += dy * force * 0.15
+					if distSq < 20000 {
+						force := (20000 - distSq) / 20000
+						p.VX += dx * force * 0.3
+						p.VY += dy * force * 0.3
 					}
-
-					p.X += p.VX
-					p.Y += p.VY
-					p.X *= 0.98 
-					p.Y *= 0.98
 					
 					// 3D -> 2D 投影
 					zWorld := p.Z + 900 // カメラからの距離
@@ -220,7 +222,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(60)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							msg := fmt.Sprintf("SINGULARITY_SYNC: 0x%04X | LATENCY: 0.16ms | PARTICLES: 1024", s.FrameCount%0xFFFF)
+							msg := fmt.Sprintf("NEURAL_SYNC: 0x%04X | LOAD: 0.1ms | PARTICLES: 4096", s.FrameCount%0xFFFF)
 							lbl := material.H6(s.Theme, msg)
 							lbl.Color = ColorPrimaryDim
 							lbl.TextSize = unit.Sp(12)
