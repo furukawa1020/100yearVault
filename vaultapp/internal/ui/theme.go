@@ -24,6 +24,11 @@ var (
 	ColorLocked      = color.NRGBA{R: 40, G: 40, B: 40, A: 255}    // 閉ざされた鉄
 	ColorDanger      = color.NRGBA{R: 180, G: 40, B: 40, A: 255}   // 警告の赤
 	ColorUnlockable  = color.NRGBA{R: 197, G: 160, B: 89, A: 255} // 解錠可能時も金を使用
+
+	// 2126年 QSP用: 熵の焔 (Entropy Glow)
+	ColorGlow0 = color.NRGBA{R: 0, G: 255, B: 242, A: 255}   // 虚空の青
+	ColorGlow1 = color.NRGBA{R: 255, G: 0, B: 200, A: 255}   // 記憶の紫
+	ColorGlow2 = color.NRGBA{R: 121, G: 255, B: 0, A: 255}   // 意識の緑
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {

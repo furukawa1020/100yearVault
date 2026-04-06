@@ -63,10 +63,10 @@ func (s *AppState) LayoutList(gtx layout.Context) layout.Dimensions {
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.layoutDashboardHeader(gtx)
 		}),
-		// 本日の共鳴 (Daily Fragment)
+		// 時空の漂着物 (Driftwood from the Time-Sea)
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if s.DailyFragment != "" {
-				return s.layoutDailyFragment(gtx)
+				return s.layoutDriftwood(gtx)
 			}
 			return layout.Dimensions{}
 		}),
@@ -96,7 +96,7 @@ func (s *AppState) layoutDashboardHeader(gtx layout.Context) layout.Dimensions {
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.H3(s.Theme, "2126 RESONANCE")
+						lbl := material.H3(s.Theme, "QUANTUM SYNCHRONICITY")
 						lbl.Color = ColorPrimary
 						return lbl.Layout(gtx)
 					}),
@@ -118,23 +118,25 @@ func (s *AppState) layoutDashboardHeader(gtx layout.Context) layout.Dimensions {
 	})
 }
 
-func (s *AppState) layoutDailyFragment(gtx layout.Context) layout.Dimensions {
+func (s *AppState) layoutDriftwood(gtx layout.Context) layout.Dimensions {
 	return layout.Inset{
 		Left: unit.Dp(40), Right: unit.Dp(40),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		// 時空の境界線（虹彩の脈動）表示
+		
 		// 背景ブロック
 		dr := image.Rectangle{Max: gtx.Constraints.Max}
 		paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(dr).Op())
 		
-		// 左端のアクセント
+		// 虹彩の脈動
 		accent := image.Rectangle{Max: image.Pt(gtx.Dp(8), gtx.Constraints.Max.Y)}
-		paint.FillShape(gtx.Ops, ColorPrimary, clip.Rect(accent).Op())
+		paint.FillShape(gtx.Ops, ColorGlow1, clip.Rect(accent).Op())
 
 		return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Caption(s.Theme, "本日の共鳴 (DAILY FRAGMENT FROM 2026)")
-					lbl.Color = ColorPrimary
+					lbl := material.Caption(s.Theme, "時空の漂着物 (DRIFTWOOD FROM THE TIME-SEA)")
+					lbl.Color = ColorGlow1
 					return lbl.Layout(gtx)
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
