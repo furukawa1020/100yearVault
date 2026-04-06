@@ -13,16 +13,16 @@ import (
 )
 
 var (
-	// 2126年標準: 百年の灯火 (Zero-UI) 用パレット
-	ColorBackground  = color.NRGBA{R: 0, G: 4, B: 17, A: 255}    // 深い夜空 (Deep Midnight)
-	ColorSurface     = color.NRGBA{R: 5, G: 10, B: 30, A: 255}    // 闇の帳
-	ColorSurfaceHigh = color.NRGBA{R: 20, G: 30, B: 60, A: 255}   // 遠い銀河
-	ColorPrimary     = color.NRGBA{R: 255, G: 215, B: 0, A: 255}  // 太陽の金 (Sunlight Amber)
-	ColorPrimaryDim  = color.NRGBA{R: 180, G: 150, B: 0, A: 255}  // 燻る残り火
-	ColorText        = color.NRGBA{R: 255, G: 250, B: 240, A: 255} // 純白の光 (High Contrast)
-	ColorTextDim     = color.NRGBA{R: 200, G: 200, B: 180, A: 255} // 温かな記憶
-	ColorLocked      = color.NRGBA{R: 10, G: 10, B: 20, A: 255}   // 静寂
-	ColorDanger      = color.NRGBA{R: 255, G: 50, B: 50, A: 255}   // 鼓動 (Pulse)
+	// 「木漏れ日の記憶 (Komorebi Echoes)」パレット
+	ColorBackground  = color.NRGBA{R: 5, G: 15, B: 5, A: 255}    // 深い森の静寂 (Deep Forest)
+	ColorSurface     = color.NRGBA{R: 10, G: 30, B: 10, A: 255}   // 陽射しの隙間
+	ColorSurfaceHigh = color.NRGBA{R: 30, G: 60, B: 30, A: 255}   // 葉の輝き
+	ColorPrimary     = color.NRGBA{R: 255, G: 191, B: 0, A: 255}  // 琥珀色の陽光 (Amber Sunlight)
+	ColorPrimaryDim  = color.NRGBA{R: 150, G: 110, B: 0, A: 255}  // 夕凪の光
+	ColorText        = color.NRGBA{R: 250, G: 245, B: 230, A: 255} // 乳白色の記憶 (Antique Cream)
+	ColorTextDim     = color.NRGBA{R: 200, G: 190, B: 160, A: 255} // セピアのささやき
+	ColorLocked      = color.NRGBA{R: 5, G: 10, B: 5, A: 255}     // 凪
+	ColorDanger      = color.NRGBA{R: 255, G: 80, B: 80, A: 255}   // 鼓動
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
