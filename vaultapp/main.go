@@ -26,10 +26,10 @@ import (
 
 func main() {
 	go func() {
-		w := new(app.Window)
-		w.Option(app.Title("Hundred-Year Vault"))
-		w.Option(app.Size(unit.Dp(1000), unit.Dp(800)))
-		
+		w := app.NewWindow(
+			app.Title("Hundred-Year Vault"),
+			app.Size(unit.Dp(1000), unit.Dp(800)),
+		)
 		if err := loop(w); err != nil {
 			log.Fatal(err)
 		}
