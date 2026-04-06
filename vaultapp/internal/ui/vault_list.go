@@ -123,8 +123,23 @@ func (s *AppState) layoutVaultItem(gtx layout.Context, i int, v *vault.Vault) la
 		Bottom: unit.Dp(8), Left: unit.Dp(24), Right: unit.Dp(24),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		// 2126年標準: モノリス・ブロックデザイン
-		dr := image.Rectangle{Max: gtx.Constraints.Max}
-		paint.FillShape(gtx.Ops, ColorSurface, clip.Rect(dr).Op())
+		thickness := gtx.Dp(unit.Dp(float32(v.LayerCount) * 2))
+		if thickness > gtx.Dp(20) {
+			thickness = gtx.Dp(20)
+		}
+
+		// 底面の影（厚み）
+		shadowRect := image.Rectangle{
+			Min: image.Pt(0, thickness),
+			Max: gtx.Constraints.Max,
+		}
+		paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(shadowRect).Op())
+		
+		// メインの前面
+		topRect := image.Rectangle{
+			Max: image.Pt(gtx.Constraints.Max.X, gtx.Constraints.Max.Y-thickness),
+		}
+		paint.FillShape(gtx.Ops, ColorSurface, clip.Rect(topRect).Op())
 
 		// 左端の「不変の境界」
 		borderColor := ColorLocked
@@ -135,7 +150,7 @@ func (s *AppState) layoutVaultItem(gtx layout.Context, i int, v *vault.Vault) la
 		}
 		
 		borderWidth := gtx.Dp(4)
-		borderRect := image.Rectangle{Max: image.Pt(borderWidth, gtx.Constraints.Max.Y)}
+		borderRect := image.Rectangle{Max: image.Pt(borderWidth, gtx.Constraints.Max.Y-thickness)}
 		paint.FillShape(gtx.Ops, borderColor, clip.Rect(borderRect).Op())
 
 		// 世紀の刻印 (Century Pulse): 1年経過ごとに1本のノッチ
@@ -174,7 +189,18 @@ func (s *AppState) layoutVaultItem(gtx layout.Context, i int, v *vault.Vault) la
 								return title.Layout(gtx)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return s.layoutStateBadge(gtx, v.State)
+								return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										if v.LayerCount > 0 {
+											return s.layoutLayerBadge(gtx, v.LayerCount)
+										}
+										return layout.Dimensions{}
+									}),
+									layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return s.layoutStateBadge(gtx, v.State)
+									}),
+								)
 							}),
 						)
 					}),
@@ -272,6 +298,27 @@ func (s *AppState) layoutVaultItemInfo(gtx layout.Context, v *vault.Vault) layou
 	lbl := material.Caption(s.Theme, info)
 	lbl.Color = infoColor
 	return lbl.Layout(gtx)
+}
+
+func (s *AppState) layoutLayerBadge(gtx layout.Context, count int) layout.Dimensions {
+	label := fmt.Sprintf("%d LAYERS", count+1) // 最初の層 + 追記分
+	return layout.Stack{}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			dr := image.Rectangle{Max: gtx.Constraints.Min}
+			paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(dr).Op())
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{
+				Top: unit.Dp(2), Bottom: unit.Dp(2),
+				Left: unit.Dp(6), Right: unit.Dp(6),
+			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				lbl := material.Caption(s.Theme, label)
+				lbl.Color = ColorPrimary
+				return lbl.Layout(gtx)
+			})
+		}),
+	)
 }
 
 // ───────────────────────────────────────────────

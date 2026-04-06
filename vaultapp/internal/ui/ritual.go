@@ -28,6 +28,7 @@ type RitualState struct {
 	RevealedText string
 	IsRevealed   bool
 	ErrorMessage string
+	AddLayerBtn  widget.Clickable
 }
 
 func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimensions {
@@ -130,9 +131,20 @@ func (s *AppState) layoutRitualInput(gtx layout.Context, r *RitualState) layout.
 			// ボタン
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if isLocked {
-					lbl := material.Caption(s.Theme, "開封条件が未達成です。時が満ちるまで待ちなさい。")
-					lbl.Color = ColorTextDim
-					return lbl.Layout(gtx)
+					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Caption(s.Theme, "開封条件が未達成ですが、新たな記憶を重ねることは可能です。")
+							lbl.Color = ColorTextDim
+							return lbl.Layout(gtx)
+						}),
+						layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							btn := material.Button(s.Theme, &r.AddLayerBtn, "+ 記憶を重ねる (Add Layer)")
+							btn.Background = ColorSurfaceHigh
+							btn.Color = ColorPrimary
+							return btn.Layout(gtx)
+						}),
+					)
 				}
 				btn := material.Button(s.Theme, &r.UnlockBtn, "封印を解く")
 				btn.Background = ColorPrimary

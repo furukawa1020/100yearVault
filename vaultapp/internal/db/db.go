@@ -32,7 +32,15 @@ func NewStore(dbPath string) (*Store, error) {
 		require_passphrase BOOLEAN,
 		passphrase_hash TEXT,
 		allow_reopen BOOLEAN,
-		destroy_on_open BOOLEAN
+		destroy_on_open BOOLEAN,
+		layer_count INTEGER DEFAULT 0
+	);
+	CREATE TABLE IF NOT EXISTS vault_layers (
+		id TEXT PRIMARY KEY,
+		parent_id TEXT,
+		cipher_path TEXT,
+		created_at DATETIME,
+		FOREIGN KEY(parent_id) REFERENCES vaults(id)
 	);`
 	
 	if _, err := db.Exec(schema); err != nil {
@@ -50,15 +58,44 @@ func (s *Store) SaveVault(v *vault.Vault) error {
 	query := `INSERT OR REPLACE INTO vaults (
 		id, title, state, created_at, sealed_at, unlock_at, opened_at, deleted_at,
 		content_type, cipher_path, preview_hint, require_passphrase, passphrase_hash,
-		allow_reopen, destroy_on_open
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		allow_reopen, destroy_on_open, layer_count
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	
 	_, err := s.db.Exec(query,
 		v.ID, v.Title, string(v.State), v.CreatedAt, v.SealedAt, v.UnlockAt, v.OpenedAt, v.DeletedAt,
 		v.ContentType, v.CipherPath, v.PreviewHint, v.RequirePassphrase, v.PassphraseHash,
-		v.AllowReopen, v.DestroyOnOpen,
+		v.AllowReopen, v.DestroyOnOpen, v.LayerCount,
 	)
 	return err
+}
+
+func (s *Store) SaveLayer(l *vault.Layer) error {
+	query := `INSERT OR REPLACE INTO vault_layers (id, parent_id, cipher_path, created_at) VALUES (?, ?, ?, ?)`
+	_, err := s.db.Exec(query, l.ID, l.ParentID, l.CipherPath, l.CreatedAt)
+	if err != nil {
+		return err
+	}
+	// VaultのLayerCountをインクリメント
+	_, err = s.db.Exec("UPDATE vaults SET layer_count = layer_count + 1 WHERE id = ?", l.ParentID)
+	return err
+}
+
+func (s *Store) ListLayers(parentID string) ([]*vault.Layer, error) {
+	rows, err := s.db.Query("SELECT id, parent_id, cipher_path, created_at FROM vault_layers WHERE parent_id = ? ORDER BY created_at ASC", parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var layers []*vault.Layer
+	for rows.Next() {
+		l := &vault.Layer{}
+		if err := rows.Scan(&l.ID, &l.ParentID, &l.CipherPath, &l.CreatedAt); err != nil {
+			return nil, err
+		}
+		layers = append(layers, l)
+	}
+	return layers, nil
 }
 
 func (s *Store) ListVaults() ([]*vault.Vault, error) {
@@ -75,7 +112,7 @@ func (s *Store) ListVaults() ([]*vault.Vault, error) {
 		err := rows.Scan(
 			&v.ID, &v.Title, &stateStr, &v.CreatedAt, &v.SealedAt, &v.UnlockAt, &v.OpenedAt, &v.DeletedAt,
 			&v.ContentType, &v.CipherPath, &v.PreviewHint, &v.RequirePassphrase, &v.PassphraseHash,
-			&v.AllowReopen, &v.DestroyOnOpen,
+			&v.AllowReopen, &v.DestroyOnOpen, &v.LayerCount,
 		)
 		if err != nil {
 			return nil, err
