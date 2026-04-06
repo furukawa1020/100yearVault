@@ -43,6 +43,14 @@ type AppState struct {
 }
 
 // ───────────────────────────────────────────────
+// 背景を塗る共通ヘルパー
+// ───────────────────────────────────────────────
+func fillBackground(gtx layout.Context, c color.NRGBA) {
+	dr := image.Rectangle{Max: image.Pt(gtx.Constraints.Max.X, gtx.Constraints.Max.Y)}
+	paint.FillShape(gtx.Ops, c, clip.Rect(dr).Op())
+}
+
+// ───────────────────────────────────────────────
 // 基盤レイアウト: 百年の灯火
 // ───────────────────────────────────────────────
 func (s *AppState) LayoutList(gtx layout.Context) layout.Dimensions {
