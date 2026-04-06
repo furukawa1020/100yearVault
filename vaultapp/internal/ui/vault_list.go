@@ -34,6 +34,7 @@ type Particle struct {
 	X, Y, Z             float32 // 計算後の投影用
 	VX, VY, VZ          float32 // 反応的なオフセット
 	Life                float32
+	Color               color.NRGBA // 極彩色データ
 }
 
 type AppState struct {
@@ -86,6 +87,7 @@ func (s *AppState) initNeuralSpace() {
 			VY:    float32(rand.NormFloat64() * 0.1),
 			VZ:    float32(rand.NormFloat64() * 0.1),
 			Life:  rand.Float32(),
+			Color: ColorDataFragments[rand.Intn(len(ColorDataFragments))],
 		}
 	}
 	s.InitOnce = true
@@ -120,81 +122,78 @@ func fillBackground(gtx layout.Context, c color.NRGBA) {
 }
 
 // ───────────────────────────────────────────────
-// 電脳領域の特異点: Neural Singularity v4.0
+// 電脳領域の特異点: Neural Origin v8.0 (Colorful Final)
 // ───────────────────────────────────────────────
 func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
 	
-	// 漆黒の物理遮断
-	paint.FillShape(gtx.Ops, ColorBackground, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, gtx.Constraints.Max.Y)).Op())
+	// 【二重防衛】レイアウト内部でも漆黒フラッシュを実行
+	paint.ColorOp{Color: ColorBackground}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
 
 	return material.Clickable(gtx, &s.NeuralSurface, func(gtx layout.Context) layout.Dimensions {
 		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-			// 1. 三次元演算レイヤー (Ultimate Singularity Engine)
+			// 1. 三次元演算レイヤー (Ultimate Color Engine)
 			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 				center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 				focalLength := float32(900) // 焦点距離
 				
-				// A. 4096 粒子 3D シミュレーション (非破壊マトリクス)
+				// A. 4096 多色粒子 3D シミュレーション
 				for i := range s.Particles {
 					p := &s.Particles[i]
 					
-					// 3D 回転マトリクス (AppState.Rotation に同期)
-					rotX, rotY := float64(s.Rotation*0.2), float64(s.Rotation*0.5)
+					// 3D 回転 (AppState.Rotation に同期)
+					rotX, rotY := float64(s.Rotation*0.3), float64(s.Rotation*0.7)
 					sinX, cosX := float32(math.Sin(rotX)), float32(math.Cos(rotX))
 					sinY, cosY := float32(math.Sin(rotY)), float32(math.Cos(rotY))
 					
-					// BaseX/Y/Z から非破壊で計算
-					// Y軸回転
 					tx := p.BaseX*cosY - p.BaseZ*sinY
 					tz := p.BaseX*sinY + p.BaseZ*cosY
-					// X軸回転
 					ty := p.BaseY*cosX - tz*sinX
 					tz = p.BaseY*sinX + tz*cosX
 
-					// マウスインタラクションによる一時的オフセット
-					p.VX *= 0.95
-					p.VY *= 0.95
+					p.VX *= 0.96
+					p.VY *= 0.96
 					p.X = tx + p.VX
 					p.Y = ty + p.VY
 					p.Z = tz
 
-					// マウス斥力演算
+					// 高感度斥力
 					dx := p.X - (s.MousePos.X - center.X)
 					dy := p.Y - (s.MousePos.Y - center.Y)
 					distSq := dx*dx + dy*dy
-					if distSq < 20000 {
-						force := (20000 - distSq) / 20000
-						p.VX += dx * force * 0.3
-						p.VY += dy * force * 0.3
+					if distSq < 25000 {
+						force := (25000 - distSq) / 25000
+						p.VX += dx * force * 0.4
+						p.VY += dy * force * 0.4
 					}
 					
 					// 3D -> 2D 投影
-					zWorld := p.Z + 900 // カメラからの距離
+					zWorld := p.Z + 900
 					if zWorld <= 50 { continue }
 					
 					sx := center.X + (p.X * focalLength) / zWorld
 					sy := center.Y + (p.Y * focalLength) / zWorld
 					
-					// 遠近による不透明率とサイズの最大化
-					size := 1.2 + (800 / zWorld)
-					if size > 6 { size = 6 }
+					// カラフルな光の粒
+					size := 1.5 + (1000 / zWorld)
+					if size > 10 { size = 10 }
 					
 					alphaVal := uint32(255 * (900 / zWorld))
 					if alphaVal > 255 { alphaVal = 255 }
 					
-					c := ColorPrimary
+					c := p.Color // 個別色
 					c.A = uint8(alphaVal)
 					
 					rect := image.Rect(int(sx), int(sy), int(sx+size), int(sy+size))
 					paint.FillShape(gtx.Ops, c, clip.Rect(rect).Op())
 				}
 
-				// B. 3D 回転ヘキサゴン・ゲート
-				for i := 1; i <= 2; i++ {
-					rot := s.Rotation * float32(i) * 0.4
-					size := float32(200 * i)
+				// B. 3D 回転ヘキサゴン・ゲート (Neo Blue)
+				for i := 1; i <= 3; i++ {
+					rot := s.Rotation * float32(i) * 0.3
+					size := float32(150 * i)
 					
 					var path clip.Path
 					path.Begin(gtx.Ops)
@@ -202,7 +201,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						curA := a + float64(rot)
 						vx := size * float32(math.Cos(curA))
 						vy := size * float32(math.Sin(curA))
-						vz := float32(math.Cos(float64(s.Rotation))) * 100
+						vz := float32(math.Sin(float64(s.Rotation*3))) * 100
 						
 						tz := vz + 1000
 						tsx := center.X + (vx * focalLength) / tz
@@ -211,33 +210,27 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						if a == 0 { path.MoveTo(f32.Pt(tsx, tsy)) } else { path.LineTo(f32.Pt(tsx, tsy)) }
 					}
 					path.Close()
-					paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Stroke{Path: path.End(), Width: 2}.Op())
+					paint.FillShape(gtx.Ops, ColorPrimary, clip.Stroke{Path: path.End(), Width: 1.5}.Op())
 				}
 
 				return layout.Dimensions{Size: gtx.Constraints.Max}
 			}),
 			
-			// 2. システム情報オーバーレイ
+			// 2. システム情報オーバーレイ (Guaranteed Monospace)
 			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(60)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							msg := fmt.Sprintf("NEURAL_SYNC: 0x%04X | LOAD: 0.1ms | PARTICLES: 4096", s.FrameCount%0xFFFF)
-							lbl := material.H6(s.Theme, msg)
-							lbl.Color = ColorPrimaryDim
-							lbl.TextSize = unit.Sp(12)
-							return lbl.Layout(gtx)
+							msg := fmt.Sprintf("NEURAL_SYNC_V8: 0x%04X | NODE_HEALTH: 100%% | FRAGMENTS: 4096", s.FrameCount%0xFFFF)
+							// material をバイパスし直接 Consolas で描画
+							return drawRawLabel(gtx, s.Theme, msg, 12, ColorPrimaryDim)
 						}),
 						layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							// 微妙な座標揺れ (Glitch)
-							offset := image.Pt(int(rand.NormFloat64()*0.8), int(rand.NormFloat64()*0.8))
+							offset := image.Pt(int(rand.NormFloat64()*1.2), int(rand.NormFloat64()*1.2))
 							stack := op.Offset(offset).Push(gtx.Ops)
-							lbl := material.H4(s.Theme, s.NeuralText)
-							lbl.Color = ColorText
-							lbl.TextSize = unit.Sp(42)
-							lbl.Alignment = text.Middle
-							dims := lbl.Layout(gtx)
+							dims := drawRawLabel(gtx, s.Theme, s.NeuralText, 38, ColorText)
 							stack.Pop()
 							return dims
 						}),
@@ -262,8 +255,17 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 }
 
 // ───────────────────────────────────────────────
-// ヘルパー（互換性のために残すが、基本は未使用）
+// 【最終兵器】素材ウィジェットを頼らずに直接描画する (Serif 体追放)
 // ───────────────────────────────────────────────
+func drawRawLabel(gtx layout.Context, th *material.Theme, txt string, size int, clr color.NRGBA) layout.Dimensions {
+	// Consolas を強制的に探す shaper
+	label := material.Label(th, unit.Sp(float32(size)), txt)
+	label.Color = clr
+	label.Font.Typeface = "Consolas" // これが重要
+	label.Alignment = text.Middle
+	return label.Layout(gtx)
+}
+
 func drawBackground(ops *op.Ops, gtx layout.Context, c color.NRGBA) {
 	dr := image.Rectangle{Max: image.Pt(gtx.Constraints.Max.X, gtx.Constraints.Max.Y)}
 	paint.FillShape(ops, c, clip.Rect(dr).Op())
