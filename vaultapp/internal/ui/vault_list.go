@@ -95,6 +95,7 @@ func (s *AppState) layoutDashboardHeader(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						lbl := material.H3(s.Theme, "ETERNAL ECHO")
 						lbl.Color = ColorPrimary
 						return lbl.Layout(gtx)
