@@ -8,25 +8,29 @@ import (
 	"gioui.org/font"
 	"gioui.org/font/opentype"
 	"gioui.org/text"
+	"gioui.org/unit"
 	"gioui.org/widget/material"
 )
 
 var (
-	// 深海・金庫を連想する配色
-	ColorBackground  = color.NRGBA{R: 8, G: 8, B: 12, A: 255}   // 漆黒
-	ColorSurface     = color.NRGBA{R: 16, G: 15, B: 22, A: 255}  // 暗礁
-	ColorSurfaceHigh = color.NRGBA{R: 28, G: 26, B: 38, A: 255}  // 少し浮き上がり
-	ColorPrimary     = color.NRGBA{R: 196, G: 168, B: 96, A: 255} // 古びた金
-	ColorPrimaryDim  = color.NRGBA{R: 120, G: 100, B: 50, A: 255} // 錆びた金
-	ColorText        = color.NRGBA{R: 200, G: 198, B: 210, A: 255} // 月光
-	ColorTextDim     = color.NRGBA{R: 100, G: 98, B: 115, A: 255}  // 霧
-	ColorLocked      = color.NRGBA{R: 55, G: 52, B: 72, A: 255}    // 施錠の青
-	ColorDanger      = color.NRGBA{R: 160, G: 60, B: 60, A: 255}   // 危険
-	ColorUnlockable  = color.NRGBA{R: 80, G: 160, B: 120, A: 255}  // 解錠可能・緑青
+	// 2126年標準: 不変性整合性規格 (IIS) 用パレット
+	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 真実の黒 (Monolith)
+	ColorSurface     = color.NRGBA{R: 26, G: 26, B: 26, A: 255}  // 鋳鉄 (Cast Iron)
+	ColorSurfaceHigh = color.NRGBA{R: 45, G: 45, B: 45, A: 255}  // 鋼 (Steel)
+	ColorPrimary     = color.NRGBA{R: 197, G: 160, B: 89, A: 255} // 鍛造金 (Forged Gold)
+	ColorPrimaryDim  = color.NRGBA{R: 115, G: 90, B: 50, A: 255}  // 鈍色金 (Dull Gold)
+	ColorText        = color.NRGBA{R: 242, G: 242, B: 242, A: 255} // 純白 (Invariant White)
+	ColorTextDim     = color.NRGBA{R: 160, G: 160, B: 160, A: 255} // 刻印の灰 (Etched Grey)
+	ColorLocked      = color.NRGBA{R: 40, G: 40, B: 40, A: 255}    // 閉ざされた鉄
+	ColorDanger      = color.NRGBA{R: 180, G: 40, B: 40, A: 255}   // 警告の赤
+	ColorUnlockable  = color.NRGBA{R: 197, G: 160, B: 89, A: 255} // 解錠可能時も金を使用
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
 	th := material.NewTheme()
+
+	// デフォルトのフォント設定
+	th.TextSize = unit.Sp(16)
 
 	data, err := os.ReadFile(fontPath)
 	if err != nil {
@@ -37,16 +41,15 @@ func NewVaultTheme(fontPath string) *material.Theme {
 			log.Printf("フォント解析失敗: %v", err)
 		} else {
 			fonts := []font.FontFace{
-				{Font: font.Font{Typeface: "Mincho"}, Face: face},
-				// Regular / Bold / Italic variants for same face
-				{Font: font.Font{Typeface: "Mincho", Weight: font.Bold}, Face: face},
+				{Font: font.Font{Typeface: "IIS-Legacy"}, Face: face},
+				{Font: font.Font{Typeface: "IIS-Legacy", Weight: font.Bold}, Face: face},
 			}
 			th.Shaper = text.NewShaper(text.WithCollection(fonts))
-			th.Face = "Mincho"
+			th.Face = "IIS-Legacy"
 		}
 	}
 
-	// カラーパレット適用
+	// 2126年標準: 高コントラスト・モノリス配色
 	th.Palette.Bg = ColorBackground
 	th.Palette.Fg = ColorText
 	th.Palette.ContrastBg = ColorPrimary

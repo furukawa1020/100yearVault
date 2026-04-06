@@ -122,25 +122,43 @@ func (s *AppState) layoutVaultItem(gtx layout.Context, i int, v *vault.Vault) la
 	return layout.Inset{
 		Bottom: unit.Dp(8), Left: unit.Dp(24), Right: unit.Dp(24),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		// カード背景
+		// 2126年標準: モノリス・ブロックデザイン
 		dr := image.Rectangle{Max: gtx.Constraints.Max}
-		paint.FillShape(gtx.Ops, ColorSurface, clip.UniformRRect(dr, 6).Op(gtx.Ops))
+		paint.FillShape(gtx.Ops, ColorSurface, clip.Rect(dr).Op())
 
-		// 状態に応じた左ボーダー色
+		// 左端の「不変の境界」
 		borderColor := ColorLocked
-		switch v.State {
-		case vault.StateUnlockable:
-			borderColor = ColorUnlockable
-		case vault.StateOpened:
+		if v.State == vault.StateUnlockable {
+			borderColor = ColorPrimary
+		} else if v.State == vault.StateOpened {
 			borderColor = ColorPrimaryDim
 		}
-		borderRect := image.Rectangle{Max: image.Pt(gtx.Dp(3), gtx.Constraints.Max.Y)}
-		paint.FillShape(gtx.Ops, borderColor, clip.UniformRRect(borderRect, 2).Op(gtx.Ops))
+		
+		borderWidth := gtx.Dp(4)
+		borderRect := image.Rectangle{Max: image.Pt(borderWidth, gtx.Constraints.Max.Y)}
+		paint.FillShape(gtx.Ops, borderColor, clip.Rect(borderRect).Op())
+
+		// 世紀の刻印 (Century Pulse): 1年経過ごとに1本のノッチ
+		yearsPassed := int(time.Since(v.CreatedAt).Hours() / (24 * 365))
+		// デモ用に、1分=1年とみなしてノッチを表示する（実運用では1年に変更）
+		// yearsPassed = int(time.Since(v.CreatedAt).Minutes()) 
+		
+		for n := 0; n < yearsPassed && n < 100; n++ {
+			yOff := gtx.Dp(unit.Dp(float32(n)*3 + 2))
+			if yOff > gtx.Constraints.Max.Y-2 {
+				break
+			}
+			notchRect := image.Rectangle{
+				Min: image.Pt(0, yOff),
+				Max: image.Pt(borderWidth+gtx.Dp(4), yOff+gtx.Dp(1)),
+			}
+			paint.FillShape(gtx.Ops, ColorText, clip.Rect(notchRect).Op())
+		}
 
 		return material.Clickable(gtx, &s.SelectBtns[i], func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{
-				Top: unit.Dp(14), Bottom: unit.Dp(14),
-				Left: unit.Dp(20), Right: unit.Dp(18),
+				Top: unit.Dp(16), Bottom: unit.Dp(16),
+				Left: unit.Dp(24), Right: unit.Dp(18),
 			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					// タイトル行
