@@ -58,22 +58,21 @@ func loop(w *app.Window) error {
 
 	state.RotateNeural()
 
-	// アニメーション・クロック (常時演算)
+	// 高速アニメーション・クロック (60FPS 極限稼働)
 	go func() {
-		for {
-			time.Sleep(16 * time.Millisecond) // 約60FPSで演算更新
-			state.Rotation += 0.02
+		ticker := time.NewTicker(16 * time.Millisecond)
+		for range ticker.C {
+			state.Rotation += 0.03 // 回転速度を微増
 			w.Invalidate()
 		}
 	}()
 	
-	// データ巡回ループ
+	// データ巡回クロック
 	go func() {
 		for {
-			time.Sleep(15 * time.Second) // 15秒ごとにデータを再構成
+			time.Sleep(12 * time.Second) // 12秒ごとにデータ断片を再構成
 			if state.CurrentScreen == ui.ScreenVaultList {
 				state.RotateNeural()
-				w.Invalidate()
 			}
 		}
 	}()
@@ -111,11 +110,12 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		w.Invalidate()
 	}
 
-	// Neural Void Logic (ハード・サイバー)
+	// Neural Void Logic (Deep-Dive v2.0)
 	if state.CurrentScreen == ui.ScreenVaultList {
 		if state.NeuralSurface.Clicked(gtx) {
 			if state.NeuralVault != nil {
 				v := state.NeuralVault
+				// 刻が満ちているか、既に開封済みの場合は「システム・アクセス」へ
 				if v.State == vault.StateOpened || time.Now().After(v.UnlockAt) {
 					state.Ritual.ActiveVault = v
 					state.CurrentScreen = ui.ScreenRitual
