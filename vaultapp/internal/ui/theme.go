@@ -13,16 +13,17 @@ import (
 )
 
 var (
-	// 「電脳の深淵 (Neural Void)」パレット - ハード・サイバー
-	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 漆黒 (Pitch Black)
-	ColorSurface     = color.NRGBA{R: 0, G: 20, B: 20, A: 255}    // 深淵の底
-	ColorSurfaceHigh = color.NRGBA{R: 0, G: 40, B: 40, A: 255}    // データの境界
-	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255}  // ネオンシアン (Cyber Cyan)
-	ColorPrimaryDim  = color.NRGBA{R: 0, G: 150, B: 150, A: 255}  // 減衰した信号
-	ColorText        = color.NRGBA{R: 220, G: 255, B: 255, A: 255} // 高輝度データ (High Contrast)
-	ColorTextDim     = color.NRGBA{R: 100, G: 200, B: 200, A: 255} // 背景データ
-	ColorLocked      = color.NRGBA{R: 0, G: 0, B: 0, A: 255}      // NULL
-	ColorDanger      = color.NRGBA{R: 255, G: 0, B: 0, A: 255}     // ERROR
+	// 「電脳領域の深淵 (Neural Deep-Dive v2.0)」パレット
+	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 漆黒 (Absolute Void)
+	ColorSurface     = color.NRGBA{R: 0, G: 5, B: 10, A: 255}    // 深淵
+	ColorSurfaceHigh = color.NRGBA{R: 0, G: 20, B: 30, A: 255}   // 境界面
+	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255}  // ネオンシアン (Neural Cyan)
+	ColorSecondary   = color.NRGBA{R: 255, G: 0, B: 255, A: 255}  // ネオンマゼンタ (Pulse Magenta)
+	ColorPrimaryDim  = color.NRGBA{R: 0, G: 120, B: 120, A: 255}  // 暗い信号
+	ColorText        = color.NRGBA{R: 180, G: 255, B: 255, A: 255} // 高輝度データ
+	ColorTextDim     = color.NRGBA{R: 0, G: 100, B: 100, A: 255}  // システムログ
+	ColorLocked      = color.NRGBA{R: 0, G: 0, B: 0, A: 255}      // NULL_STATE
+	ColorDanger      = color.NRGBA{R: 255, G: 0, B: 50, A: 255}   // SYSTEM_ERROR
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
