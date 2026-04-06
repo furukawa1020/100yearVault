@@ -57,15 +57,22 @@ func loop(w *app.Window) error {
 	}
 	state.Compose.UnlockDays.SetText("36500")
 
-	// 2126 RESONANCE: Pick a random fragment from opened vaults
+	// QSP v2126: Synthe-Mem (Chimera Synthesis)
+	var hints []string
 	for _, v := range vaults {
 		if v.State == vault.StateOpened && v.PreviewHint != "" {
-			state.DailyFragment = v.PreviewHint
-			break // For now, just the first one found
+			hints = append(hints, v.PreviewHint)
 		}
 	}
-	if state.DailyFragment == "" {
-		state.DailyFragment = "接続待機中... 最初の記憶を封じなさい。"
+	if len(hints) > 0 {
+		h := hints[rand.Intn(len(hints))]
+		if len(h) > 10 {
+			state.DailyFragment = h[:10] + "... が 2126年の風に吹かれている。"
+		} else {
+			state.DailyFragment = h + " ── 永遠に同期中。"
+		}
+	} else {
+		state.DailyFragment = "時空の海は静かだ。何かを放流しなさい。"
 	}
 
 	var ops op.Ops
