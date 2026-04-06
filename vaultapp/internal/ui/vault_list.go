@@ -158,15 +158,17 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					p.Y *= 0.99
 					
 					// 3D -> 2D 投影
-					zPos := p.Z + 1000 // 奥へオフセット
-					if zPos <= 0 { continue }
+					zPos := p.Z + 800 // 奥へオフセット
+					if zPos <= 10 { continue }
 					
 					sx := center.X + (p.X * focalLength) / zPos
 					sy := center.Y + (p.Y * focalLength) / zPos
 					
-					// 遠近による不透明度とサイズ
-					pointSize := 1.0 + (500 / zPos)
-					alphaVal := uint32(255 * (1000 / zPos))
+					// 遠近による不透明度とサイズ (Extreme Highlight)
+					pointSize := 0.5 + (1200 / zPos)
+					if pointSize > 5 { pointSize = 5 }
+					
+					alphaVal := uint32(255 * (800 / zPos))
 					if alphaVal > 255 { alphaVal = 255 }
 					alpha := uint8(alphaVal)
 					
@@ -177,31 +179,28 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					paint.FillShape(gtx.Ops, c, clip.Rect(rect).Op())
 				}
 
-				// B. 3D 回転ヘキサゴン・グリッド
+				// B. 3D 回転ヘキサゴン・ゲート (Dual)
 				for i := 1; i <= 2; i++ {
-					rot := s.Rotation * float32(i)
-					size := float32(200 * i)
-					zOffset := float32(500)
+					rot := s.Rotation * float32(i) * 0.5
+					size := float32(180 * i)
 					
 					var path clip.Path
 					path.Begin(gtx.Ops)
 					
 					for a := 0.0; a < 2*math.Pi; a += math.Pi/3 {
 						curA := a + float64(rot)
-						// 3D空間の頂点
 						vx := size * float32(math.Cos(curA))
 						vy := size * float32(math.Sin(curA))
-						vz := float32(math.Sin(float64(s.Rotation))) * 100
+						vz := float32(math.Cos(float64(s.Rotation*2))) * 150
 						
-						// 投影
-						tz := vz + zOffset + 500
+						tz := vz + 1200
 						tsx := center.X + (vx * focalLength) / tz
 						tsy := center.Y + (vy * focalLength) / tz
 						
 						if a == 0 { path.MoveTo(f32.Pt(tsx, tsy)) } else { path.LineTo(f32.Pt(tsx, tsy)) }
 					}
 					path.Close()
-					paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Stroke{Path: path.End(), Width: 1}.Op())
+					paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Stroke{Path: path.End(), Width: 1.5}.Op())
 				}
 
 				return layout.Dimensions{Size: gtx.Constraints.Max}
@@ -215,16 +214,21 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 							msg := fmt.Sprintf("SINGULARITY_SYNC: 0x%04X | LATENCY: 0.16ms | PARTICLES: 1024", s.FrameCount%0xFFFF)
 							lbl := material.H6(s.Theme, msg)
 							lbl.Color = ColorPrimaryDim
-							lbl.TextSize = unit.Sp(14)
+							lbl.TextSize = unit.Sp(12)
 							return lbl.Layout(gtx)
 						}),
 						layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							// 微妙な座標揺れ (Glitch)
+							offset := image.Pt(int(rand.NormFloat64()*0.8), int(rand.NormFloat64()*0.8))
+							stack := op.Offset(offset).Push(gtx.Ops)
 							lbl := material.H4(s.Theme, s.NeuralText)
 							lbl.Color = ColorText
 							lbl.TextSize = unit.Sp(42)
 							lbl.Alignment = text.Middle
-							return lbl.Layout(gtx)
+							dims := lbl.Layout(gtx)
+							stack.Pop()
+							return dims
 						}),
 					)
 				})

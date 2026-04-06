@@ -38,10 +38,14 @@ func NewVaultTheme(fontPath string) *material.Theme {
 	// フォント設定の強制（サイバーパンク/等幅）
 	data, err := os.ReadFile(fontPath)
 	if err != nil {
-		log.Printf("フォント読み込み失敗: システム等幅フォントを使用")
-		// システムの monospace を優先するコレクションを作成
-		th.Shaper = text.NewShaper(text.WithCollection([]font.FontFace{}))
-		th.Face = "monospace"
+		log.Printf("フォント読み込み失敗: システム等幅フォントを明示的に強制")
+		// システムの monospace / Consolas を優先するコレクション
+		fonts := []font.FontFace{
+			{Font: font.Font{Typeface: "Consolas"}},
+			{Font: font.Font{Typeface: "monospace"}},
+		}
+		th.Shaper = text.NewShaper(text.WithCollection(fonts))
+		th.Face = "Consolas"
 	} else {
 		face, err := opentype.Parse(data)
 		if err != nil {
