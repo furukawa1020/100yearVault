@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -130,12 +131,10 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					p := &s.Particles[i]
 					p.X += p.VX
 					p.Y += p.VY
-					// 中心へ引き寄せる力とノイズ
 					p.VX -= p.X * 0.0002
 					p.VY -= p.Y * 0.0002
 					
 					pos := f32.Pt(center.X+p.X, center.Y+p.Y)
-					// グリッチ的な明滅
 					alpha := uint8(100 + rand.Intn(155))
 					c := ColorPrimary
 					c.A = alpha
@@ -147,7 +146,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				// B. 三重回転ヘキサゴン
 				for i := 1; i <= 3; i++ {
 					rot := s.Rotation * float32(i) * 0.4
-					if i == 2 { rot = -rot } // 逆回転
+					if i == 2 { rot = -rot }
 					
 					size := float32(100 * i)
 					var p clip.Path
@@ -167,14 +166,14 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					}.Op())
 				}
 
-				// C. システム・走査線 (High Pulse)
+				// C. システム・走査線
 				scanY := int(float32(gtx.Constraints.Max.Y) * (float32(math.Sin(float64(s.Rotation*5))) + 1) / 2)
 				paint.FillShape(gtx.Ops, ColorSecondary, clip.Rect(image.Rect(0, scanY, gtx.Constraints.Max.X, scanY+2)).Op())
 
 				return layout.Dimensions{Size: gtx.Constraints.Max}
 			}),
 			
-			// 2. システム・マトリクス (座標データ)
+			// 2. システム・マトリクス
 			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(60)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
@@ -190,8 +189,6 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 							lbl := material.H4(s.Theme, s.NeuralText)
 							lbl.Color = ColorText
 							lbl.TextSize = unit.Sp(42)
-							// 等幅フォントへの強制
-							lbl.Font.Variant = "monospace"
 							lbl.Alignment = text.Middle
 							return lbl.Layout(gtx)
 						}),
@@ -203,41 +200,10 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 				return layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{Bottom: unit.Dp(30)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								btn := material.Button(s.Theme, &s.NewVaultBtn, "[ INJECT_NEURAL_STREAMS ]")
-								btn.Background = color.NRGBA{A: 0}
-								btn.Color = ColorSecondary
-								btn.TextSize = unit.Sp(24)
-								return btn.Layout(gtx)
-							}),
-						)
-					})
-				})
-			}),
-		)
-	})
-}pacer{Height: unit.Dp(20)}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							txt := s.NeuralText
-							lbl := material.H4(s.Theme, txt)
-							lbl.Color = ColorText
-							lbl.TextSize = unit.Sp(48)
-							lbl.Alignment = text.Middle
-							return lbl.Layout(gtx)
-						}),
-					)
-				})
-			}),
-
-			// 3. コマンド・オーバーレイ
-			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-				return layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(40)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						btn := material.Button(s.Theme, &s.NewVaultBtn, "[ INITIATE_UPLINK ]")
+						btn := material.Button(s.Theme, &s.NewVaultBtn, "[ INITIATE_NEURAL_UPLINK ]")
 						btn.Background = color.NRGBA{A: 0}
 						btn.Color = ColorSecondary
-						btn.TextSize = unit.Sp(32)
+						btn.TextSize = unit.Sp(24)
 						return btn.Layout(gtx)
 					})
 				})
