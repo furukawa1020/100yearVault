@@ -20,6 +20,10 @@ type ComposeState struct {
 	SealBtn widget.Clickable
 	BackBtn widget.Clickable
 	ErrorMessage string
+
+	// STP v2126 用拡張修飾
+	AddLayerMode bool
+	TargetVault  *vault.Vault
 }
 
 func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dimensions {
@@ -40,7 +44,11 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 						return btn.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						h2 := material.H4(s.Theme, "記憶の封印")
+						title := "記憶の封印"
+						if c.AddLayerMode && c.TargetVault != nil {
+							title = "記憶の追記: " + c.TargetVault.Title
+						}
+						h2 := material.H4(s.Theme, title)
 						h2.Color = ColorPrimary
 						return h2.Layout(gtx)
 					}),
@@ -104,7 +112,11 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 					layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
 					// 封印ボタン
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						btn := material.Button(s.Theme, &c.SealBtn, "この記憶を封印する")
+						label := "この記憶を封印する"
+						if c.AddLayerMode {
+							label = "この地層を重ねる (Add Layer)"
+						}
+						btn := material.Button(s.Theme, &c.SealBtn, label)
 						btn.TextSize = unit.Sp(18)
 						btn.Background = ColorPrimary
 						btn.Color = ColorBackground
