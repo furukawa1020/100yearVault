@@ -13,17 +13,28 @@ import (
 )
 
 var (
-	// 「電脳領域の特異点 (Neural Singularity v7.0) - FINAL」パレット
-	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 真・漆黒 (Absolute Void)
-	ColorSurface     = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 深淵
-	ColorSurfaceHigh = color.NRGBA{R: 0, G: 20, B: 40, A: 255}    // 境界面
-	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255}  // ネオンシアン (Atomic Blue)
-	ColorSecondary   = color.NRGBA{R: 0, G: 200, B: 255, A: 255}  // パルスブルー
-	ColorPrimaryDim  = color.NRGBA{R: 0, G: 120, B: 150, A: 255}  // 暗い信号
-	ColorText        = color.NRGBA{R: 255, G: 255, B: 255, A: 255} // 高輝度ホワイト
-	ColorTextDim     = color.NRGBA{R: 0, G: 180, B: 200, A: 255}  // 背景データ
-	ColorLocked      = color.NRGBA{R: 0, G: 0, B: 0, A: 255}      // NULL_STATE
-	ColorDanger      = color.NRGBA{R: 255, G: 0, B: 0, A: 255}     // SYSTEM_ERROR
+	// 「電脳領域の特異点 (Neural Origin v8.0) - COLORFUL FINAL」パレット
+	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}    // 真・漆黒
+	ColorSurface     = color.NRGBA{R: 0, G: 0, B: 0, A: 255}    // 深淵
+	ColorSurfaceHigh = color.NRGBA{R: 0, G: 20, B: 40, A: 255}   // 境界面
+	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255} // ネオンブルー
+	ColorSecondary   = color.NRGBA{R: 255, G: 0, B: 255, A: 255} // マゼンタ
+	ColorTertiary    = color.NRGBA{R: 0, G: 255, B: 120, A: 255} // エメラルド
+	ColorQuaternary  = color.NRGBA{R: 255, G: 200, B: 0, A: 255} // ゴールド
+	ColorPrimaryDim  = color.NRGBA{R: 0, G: 100, B: 120, A: 255} // 暗い信号
+	
+	ColorDataFragments = []color.NRGBA{
+		{R: 0, G: 255, B: 255, A: 255}, // Blue
+		{R: 255, G: 0, B: 255, A: 255}, // Magenta
+		{R: 0, G: 255, B: 150, A: 255}, // Green
+		{R: 255, G: 200, B: 0, A: 255}, // Gold
+		{R: 255, G: 255, B: 255, A: 255}, // White
+	}
+
+	ColorText    = color.NRGBA{R: 255, G: 255, B: 255, A: 255} // 高輝度
+	ColorTextDim = color.NRGBA{R: 0, G: 180, B: 200, A: 255}    // 背景データ
+	ColorLocked  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+	ColorDanger  = color.NRGBA{R: 255, G: 0, B: 0, A: 255}
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
@@ -38,8 +49,7 @@ func NewVaultTheme(fontPath string) *material.Theme {
 	// フォント設定の強制（サイバーパンク/等幅）
 	data, err := os.ReadFile(fontPath)
 	if err != nil {
-		log.Printf("フォント読み込み失敗: システム等幅フォントを明示的に強制")
-		// システムの monospace / Consolas を優先するコレクション
+		log.Printf("フォント読み込み失敗: システム等幅フォントを明示的に強制 (Consolas)")
 		fonts := []font.FontFace{
 			{Font: font.Font{Typeface: "Consolas"}},
 			{Font: font.Font{Typeface: "monospace"}},
@@ -50,11 +60,11 @@ func NewVaultTheme(fontPath string) *material.Theme {
 		face, err := opentype.Parse(data)
 		if err != nil {
 			log.Printf("フォント解析失敗: %v", err)
-			th.Face = "monospace"
+			th.Face = "Consolas"
 		} else {
 			fonts := []font.FontFace{
 				{Font: font.Font{Typeface: "Neural-Logic"}, Face: face},
-				{Font: font.Font{Typeface: "Neural-Logic", Weight: font.Bold}, Face: face},
+				{Font: font.Font{Typeface: "Consolas"}},
 			}
 			th.Shaper = text.NewShaper(text.WithCollection(fonts))
 			th.Face = "Neural-Logic"
