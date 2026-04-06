@@ -94,7 +94,7 @@ func loop(w *app.Window) error {
 			paint.PaintOp{}.Add(gtx.Ops)
 
 			// Logic Handling
-			updateLogic(gtx, state, store, gtx.Source)
+			updateLogic(gtx, state, store, w)
 
 			// Main Layout (Neural Interface)
 			switch state.CurrentScreen {
