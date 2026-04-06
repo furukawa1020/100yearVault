@@ -12,6 +12,7 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -90,8 +91,7 @@ func loop(w *app.Window) error {
 
 			// 【絶対的刷新 v8.0】Atomic Frame Clear (Maximum Enforcement)
 			// レイアウトに関わらず、全バッファを漆黒 (#000000) で物理的に強制塗りつぶし
-			paint.ColorOp{Color: ui.ColorBackground}.Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
+			paint.FillShape(gtx.Ops, ui.ColorBackground, clip.Rect{Max: e.Size}.Op())
 
 			// Logic Handling
 			updateLogic(gtx, state, store, w)

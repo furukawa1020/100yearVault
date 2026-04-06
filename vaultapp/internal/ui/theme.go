@@ -2,12 +2,8 @@ package ui
 
 import (
 	"image/color"
-	"log"
 	"os"
-
-	"gioui.org/font"
 	"gioui.org/font/opentype"
-	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 )
