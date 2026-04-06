@@ -169,15 +169,12 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 						state.Compose.ErrorMessage = "ファイルの保存に失敗しました。"
 						w.Invalidate()
 					} else {
-						if state.Compose.AddLayerMode && state.Compose.TargetVault != nil {
-							// Layerの追加
-							l := &vault.Layer{
-								ID:         layerID,
-								ParentID:   vid,
-								CipherPath: cipherPath,
-								CreatedAt:  time.Now(),
+							if err := store.SaveLayer(l); err != nil {
+								log.Printf("STP LAYER SAVE ERROR: %v", err)
+								state.Compose.ErrorMessage = "地層の保存に失敗しました。"
+								w.Invalidate()
+								return
 							}
-							store.SaveLayer(l)
 						} else {
 							// 新規Vaultの作成 (時空への放流)
 							days, _ := strconv.ParseFloat(daysInput, 64)
@@ -204,7 +201,12 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 								RequirePassphrase: true,
 								PreviewHint:       body, // 後のキメラ合成用にヒントとして保持
 							}
-							store.SaveVault(v)
+							if err := store.SaveVault(v); err != nil {
+								log.Printf("QSP VAULT SAVE ERROR: %v", err)
+								state.Compose.ErrorMessage = "時空への放流に失敗しました。"
+								w.Invalidate()
+								return
+							}
 						}
 						
 						// Success Cleanup
@@ -216,7 +218,11 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 						state.Compose.TargetVault = nil
 						
 						// Refresh List
-						state.Vaults, _ = store.ListVaults()
+						var err error
+						state.Vaults, err = store.ListVaults()
+						if err != nil {
+							log.Printf("LIST REFRESH ERROR: %v", err)
+						}
 						state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
 						state.CurrentScreen = ui.ScreenVaultList
 						w.Invalidate()
