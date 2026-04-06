@@ -88,13 +88,13 @@ func loop(w *app.Window) error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
-			// 【絶対的刷新 v6.0】Atomic Frame Clear
-			// ウィンドウ全域を物理的に漆黒 (#000000) でリセット
+			// 【絶対的刷新 v7.0】Atomic Frame Clear (Overkill)
+			// レイアウトに関わらず、全バッファを漆黒 (#000000) で物理的に強制塗りつぶし
 			paint.ColorOp{Color: ui.ColorBackground}.Add(gtx.Ops)
 			paint.PaintOp{}.Add(gtx.Ops)
 
 			// Logic Handling
-			updateLogic(gtx, state, store, w)
+			updateLogic(gtx, state, store, gtx.Source)
 
 			// Main Layout (Neural Interface)
 			switch state.CurrentScreen {
