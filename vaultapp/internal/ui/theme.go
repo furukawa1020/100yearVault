@@ -27,33 +27,35 @@ var (
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
+	// 2126年標準: 高コントラスト・モノリス
 	th := material.NewTheme()
-
-	// デフォルトのフォント設定
-	th.TextSize = unit.Sp(16)
-
-	data, err := os.ReadFile(fontPath)
-	if err != nil {
-		log.Printf("フォント読み込み失敗: %v, システムデフォルトで続行", err)
-	} else {
-		face, err := opentype.Parse(data)
-		if err != nil {
-			log.Printf("フォント解析失敗: %v", err)
-		} else {
-			fonts := []font.FontFace{
-				{Font: font.Font{Typeface: "IIS-Legacy"}, Face: face},
-				{Font: font.Font{Typeface: "IIS-Legacy", Weight: font.Bold}, Face: face},
-			}
-			th.Shaper = text.NewShaper(text.WithCollection(fonts))
-			th.Face = "IIS-Legacy"
-		}
-	}
-
-	// 2126年標準: 高コントラスト・モノリス配色
 	th.Palette.Bg = ColorBackground
 	th.Palette.Fg = ColorText
 	th.Palette.ContrastBg = ColorPrimary
 	th.Palette.ContrastFg = ColorBackground
+	th.TextSize = unit.Sp(16)
+
+	// フォント設定の強制（サイバーパンク/等幅）
+	data, err := os.ReadFile(fontPath)
+	if err != nil {
+		log.Printf("フォント読み込み失敗: システム等幅フォントを使用")
+		// システムの monospace を優先するコレクションを作成
+		th.Shaper = text.NewShaper(text.WithCollection([]font.FontFace{}))
+		th.Face = "monospace"
+	} else {
+		face, err := opentype.Parse(data)
+		if err != nil {
+			log.Printf("フォント解析失敗: %v", err)
+			th.Face = "monospace"
+		} else {
+			fonts := []font.FontFace{
+				{Font: font.Font{Typeface: "Neural-Logic"}, Face: face},
+				{Font: font.Font{Typeface: "Neural-Logic", Weight: font.Bold}, Face: face},
+			}
+			th.Shaper = text.NewShaper(text.WithCollection(fonts))
+			th.Face = "Neural-Logic"
+		}
+	}
 
 	return th
 }
