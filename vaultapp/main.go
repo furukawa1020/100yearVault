@@ -51,10 +51,9 @@ func loop(w *app.Window) error {
 	fontPath := filepath.Join(".", "assets", "fonts", "font.ttf")
 	th := ui.NewVaultTheme(fontPath)
 	state := &ui.AppState{
-		Theme:            th,
-		Vaults:           vaults,
-		SelectBtns:       make([]widget.Clickable, len(vaults)),
-		ConnectionStatus: "CONNECTION TO 2026: STABLE [99.9%]",
+		Theme:      th,
+		Vaults:     vaults,
+		SelectBtns: make([]widget.Clickable, len(vaults)),
 	}
 	state.Compose.UnlockDays.SetText("36500")
 
