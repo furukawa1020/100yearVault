@@ -270,7 +270,7 @@ func (s *AppState) layoutRevealed(gtx layout.Context, r *RitualState) layout.Dim
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				dr := image.Rectangle{Max: image.Pt(gtx.Constraints.Max.X, gtx.Dp(220))}
 				paint.FillShape(gtx.Ops, ColorSurface, clip.UniformRRect(dr, 8).Op(gtx.Ops))
-				return layout.Inset{All: unit.Dp(20)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(20)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					lbl := material.Body1(s.Theme, r.RevealedText)
 					lbl.Color = ColorText
 					return lbl.Layout(gtx)
