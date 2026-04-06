@@ -95,13 +95,12 @@ func (s *AppState) layoutDashboardHeader(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.H3(s.Theme, "QUANTUM SYNCHRONICITY")
+						lbl := material.H3(s.Theme, "ETERNAL ECHO")
 						lbl.Color = ColorPrimary
 						return lbl.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						sub := material.H6(s.Theme, s.ConnectionStatus)
+						sub := material.H6(s.Theme, "PERSONAL UNIVERSAL CONTINUUM")
 						sub.Color = ColorTextDim
 						return sub.Layout(gtx)
 					}),
@@ -122,20 +121,14 @@ func (s *AppState) layoutDriftwood(gtx layout.Context) layout.Dimensions {
 	return layout.Inset{
 		Left: unit.Dp(40), Right: unit.Dp(40),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		// 琥珀の残り火（生命の輝き）表示
-		
-		// 背景ブロック
+		// 百年の残響: 思考の星図背景
 		dr := image.Rectangle{Max: gtx.Constraints.Max}
-		paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(dr).Op())
+		paint.FillShape(gtx.Ops, ColorSurface, clip.UniformRRect(dr, 12).Op(gtx.Ops))
 		
-		// 生命の鼓動
-		accent := image.Rectangle{Max: image.Pt(gtx.Dp(8), gtx.Constraints.Max.Y)}
-		paint.FillShape(gtx.Ops, ColorPrimary, clip.Rect(accent).Op())
-
 		return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Caption(s.Theme, "琥珀の残り火 (LIVING EMBERS FROM THE PAST)")
+					lbl := material.Caption(s.Theme, "百年の残響 (THE ETERNAL ECHO)")
 					lbl.Color = ColorPrimary
 					return lbl.Layout(gtx)
 				}),
