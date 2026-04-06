@@ -46,28 +46,16 @@ func NewVaultTheme(fontPath string) *material.Theme {
 	th.Palette.ContrastFg = ColorBackground
 	th.TextSize = unit.Sp(16)
 
-	// フォント設定の強制（サイバーパンク/等幅）
+	// フォント設定の強制（システム等幅 Consolas を優先）
+	th.Face = "Consolas"
+	
 	data, err := os.ReadFile(fontPath)
-	if err != nil {
-		log.Printf("フォント読み込み失敗: システム等幅フォントを明示的に強制 (Consolas)")
-		fonts := []font.FontFace{
-			{Font: font.Font{Typeface: "Consolas"}},
-			{Font: font.Font{Typeface: "monospace"}},
-		}
-		th.Shaper = text.NewShaper(text.WithCollection(fonts))
-		th.Face = "Consolas"
-	} else {
+	if err == nil {
 		face, err := opentype.Parse(data)
-		if err != nil {
-			log.Printf("フォント解析失敗: %v", err)
-			th.Face = "Consolas"
-		} else {
-			fonts := []font.FontFace{
-				{Font: font.Font{Typeface: "Neural-Logic"}, Face: face},
-				{Font: font.Font{Typeface: "Consolas"}},
-			}
-			th.Shaper = text.NewShaper(text.WithCollection(fonts))
+		if err == nil {
+			// カスタムフォントがあればセット（コレクションへの追加は行わない）
 			th.Face = "Neural-Logic"
+			_ = face // フォント解析成功
 		}
 	}
 
