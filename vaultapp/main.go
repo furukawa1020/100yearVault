@@ -58,7 +58,7 @@ func loop(w *app.Window) error {
 	}
 	state.Compose.UnlockDays.SetText("36500")
 
-	// LAP v2126: Amber Sync (琥珀の共鳴)
+	// EEP v2126: Neural Echoes (百年の残響)
 	var hints []string
 	for _, v := range vaults {
 		if v.State == vault.StateOpened && v.PreviewHint != "" {
@@ -68,12 +68,12 @@ func loop(w *app.Window) error {
 	if len(hints) > 0 {
 		h := hints[rand.Intn(len(hints))]
 		if len(h) > 10 {
-			state.DailyFragment = h[:10] + "... が 100年の琥珀の中で輝いている。"
+			state.DailyFragment = h[:10] + "... が 思考の星図で瞬いている。"
 		} else {
-			state.DailyFragment = h + " ── 琥珀に刻まれた永遠。"
+			state.DailyFragment = h + " ── 永遠に響く残響。"
 		}
 	} else {
-		state.DailyFragment = "琥珀はまだ透明だ。最初の一片を託しなさい。"
+		state.DailyFragment = "あなたの星図はまだ空白です。最初の残響を刻みなさい。"
 	}
 
 	var ops op.Ops
@@ -183,13 +183,13 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 								return
 							}
 						} else {
-							// 新規Vaultの作成 (琥珀への信託)
+							// 新規残響の作成 (残響の刻印)
 							days, _ := strconv.ParseFloat(daysInput, 64)
 							if days <= 0 {
 								days = 36500 
 							}
 
-							// 2126年 LAP: 琥珀の成熟 (ランダム性と意志の重畳)
+							// 2126年 EEP: 思考の漂流 (意志の残響)
 							maxSeconds := days * 24 * 60 * 60
 							randomSeconds := float64(time.Now().UnixNano()%int64(maxSeconds))
 							
