@@ -41,36 +41,30 @@ type AppState struct {
 	VaultList   layout.List
 	SelectBtns  []widget.Clickable
 
-	// 2126年標準: 百年の灯火 (Zero-UI)
-	LanternVault  *vault.Vault
-	LanternText   string
-	LanternBtn    widget.Clickable
+	// 木漏れ日の記憶 (EchoMode)
+	EchoVault   *vault.Vault
+	EchoText    string
+	EchoSurface widget.Clickable
 }
 
-func (s *AppState) RotateLantern() {
+func (s *AppState) RotateEcho() {
 	if len(s.Vaults) == 0 {
-		s.LanternVault = nil
-		s.LanternText = "静かな朝です。\n今の想いを、未来に託しませんか。"
+		s.EchoVault = nil
+		s.EchoText = "静かな森の中です。\n今はただ、ここにいてください。"
 		return
 	}
 	
 	idx := rand.Intn(len(s.Vaults))
 	v := s.Vaults[idx]
-	s.LanternVault = v
+	s.EchoVault = v
 	
 	if v.State == vault.StateOpened {
-		s.LanternText = v.Title + "\n\n(開封された想い出)"
+		s.EchoText = "かつてのあなたの想い：\n\n「" + v.Title + "」"
 	} else if time.Now().After(v.UnlockAt) {
-		s.LanternText = v.Title + "\n\n[タップして記憶を呼び覚ます]"
+		s.EchoText = v.Title + "\n\n(そっと触れて、記憶を呼び覚ます)"
 	} else {
-		// まだ先の未来
-		days := int(time.Until(v.UnlockAt).Hours() / 24)
-		if days > 365 {
-			years := days / 365
-			s.LanternText = v.Title + "\n\n(約 " + strconv.Itoa(years) + " 年の熟成)"
-		} else {
-			s.LanternText = v.Title + "\n\n(約 " + strconv.Itoa(days) + " 日の熟成)"
-		}
+		// 未来への約束
+		s.EchoText = v.Title + "\n\n(遠い未来への、大切な約束です)"
 	}
 }
 
@@ -85,47 +79,53 @@ func fillBackground(gtx layout.Context, c color.NRGBA) {
 // ───────────────────────────────────────────────
 // 基盤レイアウト: 百年の灯火
 // ───────────────────────────────────────────────
-func (s *AppState) LayoutList(gtx layout.Context) layout.Dimensions {
-	// 背景: 深い宇宙
-	dr := image.Rectangle{Max: gtx.Constraints.Max}
-	paint.FillShape(gtx.Ops, ColorBackground, clip.Rect(dr).Op())
+// ───────────────────────────────────────────────
+// 回想の風景: 木漏れ日の記憶
+// ───────────────────────────────────────────────
+func (s *AppState) LayoutEcho(gtx layout.Context) layout.Dimensions {
+	fillBackground(gtx, ColorBackground)
 
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		// 上部：過去の自分からの語りかけ（極大表示）
-		layout.Flexed(0.7, func(gtx layout.Context) layout.Dimensions {
-			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(unit.Dp(60)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Clickable(gtx, &s.LanternBtn, func(gtx layout.Context) layout.Dimensions {
-						txt := s.LanternText
-						if txt == "" {
-							txt = "静かな朝です。\n今の想いを、未来に託しませんか。"
-						}
-						lbl := material.H4(s.Theme, txt)
-						lbl.Color = ColorPrimary
-						// 開封可能な場合は白く発光させる（コントラストを上げる）
-						if s.LanternVault != nil && s.LanternVault.State == vault.StateSealed && time.Now().After(s.LanternVault.UnlockAt) {
-							lbl.Color = ColorText
-						}
-						lbl.TextSize = unit.Sp(64)
-						lbl.Alignment = text.Middle
-						return lbl.Layout(gtx)
+	return material.Clickable(gtx, &s.EchoSurface, func(gtx layout.Context) layout.Dimensions {
+		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
+			// 背景の演出：光の粒子（オーブ）を模した大きな円
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+				// ここに将来的にパーティクルアニメーションを追加可能
+				return layout.Dimensions{}
+			}),
+			
+			// 中央のメッセージ（木漏れ日のように浮かび上がる）
+			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(80)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					txt := s.EchoText
+					if txt == "" {
+						txt = "穏やかな時間が流れています。"
+					}
+					lbl := material.H4(s.Theme, txt)
+					lbl.Color = ColorPrimary
+					// 開封可能な場合はより明るく
+					if s.EchoVault != nil && s.EchoVault.State == vault.StateSealed && time.Now().After(s.EchoVault.UnlockAt) {
+						lbl.Color = ColorText
+					}
+					lbl.TextSize = unit.Sp(64)
+					lbl.Alignment = text.Middle
+					return lbl.Layout(gtx)
+				})
+			}),
+
+			// 下部の「想いを残す」誘導（ボタン感を出さず、静かな導線に）
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+				return layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Bottom: unit.Dp(60)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						btn := material.Button(s.Theme, &s.NewVaultBtn, "想いをそっと残す")
+						btn.Background = color.NRGBA{A: 0} // 透明
+						btn.Color = ColorPrimaryDim
+						btn.TextSize = unit.Sp(32)
+						return btn.Layout(gtx)
 					})
 				})
-			})
-		}),
-
-		// 下部：巨大な「想いを残す」ボタン（どこでも触れる安心感）
-		layout.Flexed(0.3, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(40)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(s.Theme, &s.NewVaultBtn, "今の想いを灯す (RECORD)")
-				btn.Background = ColorSurfaceHigh
-				btn.Color = ColorPrimary
-				btn.TextSize = unit.Sp(40)
-				btn.Inset = layout.Inset{Top: unit.Dp(60), Bottom: unit.Dp(60)}
-				return btn.Layout(gtx)
-			})
-		}),
-	)
+			}),
+		)
+	})
 }
 
 // ───────────────────────────────────────────────
