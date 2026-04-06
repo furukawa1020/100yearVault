@@ -280,6 +280,9 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 							state.Ritual.RevealedText = fullText
 							state.Ritual.Password.SetText("") 
 							
+							// 2126 RESONANCE: Update dashboard fragment
+							state.DailyFragment = v.PreviewHint
+
 							// リストの同期
 							state.Vaults, _ = store.ListVaults()
 							state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
