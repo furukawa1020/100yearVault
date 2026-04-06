@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"log"
 	"os"
 	"path/filepath"
@@ -89,22 +90,33 @@ func loop(w *app.Window) error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
-			// 【絶対的刷新 v8.0】Atomic Frame Clear (Maximum Enforcement)
-			// レイアウトに関わらず、全バッファを漆黒 (#000000) で物理的に強制塗りつぶし
-			paint.FillShape(gtx.Ops, ui.ColorBackground, clip.Rect{Max: e.Size}.Op())
+			// 【絶対的回帰 v9.0】Neural Zero Layering
+			// すべてのウィジェットの背後に漆黒の岩盤を物理的に固定。
+			// これにより、透過やバッファ汚染による「灰色」を根絶する。
+			layout.Stack{Alignment: layout.Center}.Layout(gtx,
+				// Layer 0: Absolute Void (岩盤)
+				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+					// 【二重防衛】各スクリーンレベルでも物理的漆黒クリアを再実行
+					paint.FillShape(gtx.Ops, ui.ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
+					return layout.Dimensions{Size: gtx.Constraints.Max}
+				}),
+				// Layer 1: Operational Interface (本番)
+				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+					// Logic Handling
+					updateLogic(gtx, state, store, w)
 
-			// Logic Handling
-			updateLogic(gtx, state, store, w)
-
-			// Main Layout (Neural Interface)
-			switch state.CurrentScreen {
-			case ui.ScreenVaultList:
-				state.LayoutNeural(gtx)
-			case ui.ScreenCompose:
-				state.LayoutCompose(gtx, &state.Compose)
-			case ui.ScreenRitual:
-				state.LayoutRitual(gtx, &state.Ritual)
-			}
+					// Main Layout
+					switch state.CurrentScreen {
+					case ui.ScreenVaultList:
+						state.LayoutNeural(gtx)
+					case ui.ScreenCompose:
+						state.LayoutCompose(gtx, &state.Compose)
+					case ui.ScreenRitual:
+						state.LayoutRitual(gtx, &state.Ritual)
+					}
+					return layout.Dimensions{Size: gtx.Constraints.Max}
+				}),
+			)
 
 			e.Frame(gtx.Ops)
 		}

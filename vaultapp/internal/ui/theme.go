@@ -9,15 +9,15 @@ import (
 )
 
 var (
-	// 「電脳領域の特異点 (Neural Origin v8.0) - COLORFUL FINAL」パレット
-	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}    // 真・漆黒
+	// 「電脳領域の原点 (Neural Origin v9.0) - ZERO FINAL」パレット
+	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}    // 絶対漆黒
 	ColorSurface     = color.NRGBA{R: 0, G: 0, B: 0, A: 255}    // 深淵
-	ColorSurfaceHigh = color.NRGBA{R: 0, G: 20, B: 40, A: 255}   // 境界面
+	ColorSurfaceHigh = color.NRGBA{R: 0, G: 30, B: 60, A: 255}   // 境界面
 	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255} // ネオンブルー
 	ColorSecondary   = color.NRGBA{R: 255, G: 0, B: 255, A: 255} // マゼンタ
-	ColorTertiary    = color.NRGBA{R: 0, G: 255, B: 120, A: 255} // エメラルド
+	ColorTertiary    = color.NRGBA{R: 0, G: 255, B: 150, A: 255} // グリーン
 	ColorQuaternary  = color.NRGBA{R: 255, G: 200, B: 0, A: 255} // ゴールド
-	ColorPrimaryDim  = color.NRGBA{R: 0, G: 100, B: 120, A: 255} // 暗い信号
+	ColorPrimaryDim  = color.NRGBA{R: 0, G: 120, B: 150, A: 255} // 暗い信号
 	
 	ColorDataFragments = []color.NRGBA{
 		{R: 0, G: 255, B: 255, A: 255}, // Blue
@@ -27,7 +27,7 @@ var (
 		{R: 255, G: 255, B: 255, A: 255}, // White
 	}
 
-	ColorText    = color.NRGBA{R: 255, G: 255, B: 255, A: 255} // 高輝度
+	ColorText    = color.NRGBA{R: 255, G: 255, B: 255, A: 255} // Opaque White
 	ColorTextDim = color.NRGBA{R: 0, G: 180, B: 200, A: 255}    // 背景データ
 	ColorLocked  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
 	ColorDanger  = color.NRGBA{R: 255, G: 0, B: 0, A: 255}
@@ -36,22 +36,26 @@ var (
 func NewVaultTheme(fontPath string) *material.Theme {
 	// 2126年標準: 高コントラスト・モノリス
 	th := material.NewTheme()
+	
+	// パレットの絶対適用
 	th.Palette.Bg = ColorBackground
 	th.Palette.Fg = ColorText
 	th.Palette.ContrastBg = ColorPrimary
 	th.Palette.ContrastFg = ColorBackground
 	th.TextSize = unit.Sp(16)
 
-	// フォント設定の強制（システム等幅 Consolas を優先）
+	// 【物理的強制】等幅フォント Consolas を最優先に
 	th.Face = "Consolas"
 	
-	data, err := os.ReadFile(fontPath)
-	if err == nil {
-		face, err := opentype.Parse(data)
+	// カスタムフォントがあれば試行するが、失敗しても Consolas を維持
+	if fontPath != "" {
+		data, err := os.ReadFile(fontPath)
 		if err == nil {
-			// カスタムフォントがあればセット（コレクションへの追加は行わない）
-			th.Face = "Neural-Logic"
-			_ = face // フォント解析成功
+			face, err := opentype.Parse(data)
+			if err == nil {
+				th.Face = "Neural-Logic"
+				_ = face 
+			}
 		}
 	}
 

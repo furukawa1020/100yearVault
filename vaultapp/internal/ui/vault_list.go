@@ -128,11 +128,13 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
 	
-	// 【二重防衛】レイアウト内部でも漆黒フラッシュを実行
-	paint.ColorOp{Color: ColorBackground}.Add(gtx.Ops)
-	paint.PaintOp{}.Add(gtx.Ops)
+	// 【零の回帰】レイアウト内部を漆黒で完全遮断。OSの入り込む余地をなくす。
+	paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
 	return material.Clickable(gtx, &s.NeuralSurface, func(gtx layout.Context) layout.Dimensions {
+		// クリッカブル領域自体も漆黒を強制
+		paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
+		
 		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
 			// 1. 三次元演算レイヤー (Ultimate Color Engine)
 			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
