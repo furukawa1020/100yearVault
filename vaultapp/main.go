@@ -12,6 +12,8 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 
@@ -48,7 +50,8 @@ func loop(w *app.Window) error {
 	vaults, _ := store.ListVaults()
 
 	// UI State
-	fontPath := filepath.Join(".", "assets", "fonts", "font.ttf")
+	// UI State (Absolute Pathing)
+	fontPath, _ := filepath.Abs(filepath.Join(".", "assets", "fonts", "font.ttf"))
 	th := ui.NewVaultTheme(fontPath)
 	state := &ui.AppState{
 		Theme:      th,
@@ -85,6 +88,9 @@ func loop(w *app.Window) error {
 			return e.Err
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
+
+			// 【絶対的刷新 v5.0】ウィンドウ全域を漆黒で物理的にフラッシュ
+			paint.FillShape(gtx.Ops, ui.ColorBackground, clip.Rect{Max: e.Size}.Op())
 
 			// Logic Handling
 			updateLogic(gtx, state, store, w)
