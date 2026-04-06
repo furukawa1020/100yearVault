@@ -13,22 +13,16 @@ import (
 )
 
 var (
-	// 2126年標準: 不変性整合性規格 (IIS) 用パレット
-	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 真実の黒 (Monolith)
-	ColorSurface     = color.NRGBA{R: 26, G: 26, B: 26, A: 255}  // 鋳鉄 (Cast Iron)
-	ColorSurfaceHigh = color.NRGBA{R: 45, G: 45, B: 45, A: 255}  // 鋼 (Steel)
-	ColorPrimary     = color.NRGBA{R: 197, G: 160, B: 89, A: 255} // 鍛造金 (Forged Gold)
-	ColorPrimaryDim  = color.NRGBA{R: 115, G: 90, B: 50, A: 255}  // 鈍色金 (Dull Gold)
-	ColorText        = color.NRGBA{R: 242, G: 242, B: 242, A: 255} // 純白 (Invariant White)
-	ColorTextDim     = color.NRGBA{R: 160, G: 160, B: 160, A: 255} // 刻印の灰 (Etched Grey)
-	ColorLocked      = color.NRGBA{R: 40, G: 40, B: 40, A: 255}    // 閉ざされた鉄
-	ColorDanger      = color.NRGBA{R: 180, G: 40, B: 40, A: 255}   // 警告の赤
-	ColorUnlockable  = color.NRGBA{R: 197, G: 160, B: 89, A: 255} // 解錠可能時も金を使用
-
-	// 2126年 QSP用: 熵の焔 (Entropy Glow)
-	ColorGlow0 = color.NRGBA{R: 0, G: 255, B: 242, A: 255}   // 虚空の青
-	ColorGlow1 = color.NRGBA{R: 255, G: 0, B: 200, A: 255}   // 記憶の紫
-	ColorGlow2 = color.NRGBA{R: 121, G: 255, B: 0, A: 255}   // 意識の緑
+	// 2126年標準: 生命の琥珀規格 (LAP) 用パレット
+	ColorBackground  = color.NRGBA{R: 12, G: 8, B: 0, A: 255}    // 深い夜 (Midnight Amber)
+	ColorSurface     = color.NRGBA{R: 28, G: 20, B: 5, A: 255}   // 琥珀の核 (Amber Core)
+	ColorSurfaceHigh = color.NRGBA{R: 45, G: 32, B: 8, A: 255}   // 樹脂 (Resin)
+	ColorPrimary     = color.NRGBA{R: 255, G: 191, B: 0, A: 255} // 琥珀光 (Amber Glow)
+	ColorPrimaryDim  = color.NRGBA{R: 180, G: 135, B: 0, A: 255} // 燻る金 (Smoldering Gold)
+	ColorText        = color.NRGBA{R: 255, G: 245, B: 230, A: 255}// 生命の白 (Vital White)
+	ColorTextDim     = color.NRGBA{R: 160, G: 140, B: 110, A: 255}// 記憶の灰 (Memory Ash)
+	ColorLocked      = color.NRGBA{R: 50, G: 35, B: 10, A: 255}   // 封印された時間
+	ColorDanger      = color.NRGBA{R: 220, G: 60, B: 20, A: 255}   // 生命の鼓動
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
