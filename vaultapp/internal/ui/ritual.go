@@ -3,13 +3,13 @@ package ui
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"math"
 	"time"
 
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -199,44 +199,76 @@ func (s *AppState) layoutUnlockableInfo(gtx layout.Context) layout.Dimensions {
 	)
 }
 
-// 儀式演出中の画面
+// 儀式演出中の画面 (2126年標準: 機械的解錠)
 func (s *AppState) layoutProcessing(gtx layout.Context, r *RitualState) layout.Dimensions {
-	// アニメ進行0.0〜1.0
 	elapsed := time.Since(r.ProcessingSince).Seconds()
-	progress := math.Min(elapsed/2.0, 1.0) // 2秒で完了
+	progress := math.Min(elapsed/2.0, 1.0)
 
-	// 波紋演出: progressに応じてリングを描画
+	// 背景の機械的ギミック描画
 	center := image.Pt(gtx.Constraints.Max.X/2, gtx.Constraints.Max.Y/2)
-	maxR := float64(min(gtx.Constraints.Max.X, gtx.Constraints.Max.Y)) * 0.35
-
-	for i := 0; i < 3; i++ {
-		ringProgress := math.Mod(progress*1.5+float64(i)*0.3, 1.0)
-		r2 := int(maxR * ringProgress)
-		alpha := uint8((1.0 - ringProgress) * 180)
-		ringColor := color.NRGBA{R: 196, G: 168, B: 96, A: alpha}
-		ringRect := image.Rectangle{
-			Min: image.Pt(center.X-r2, center.Y-r2),
-			Max: image.Pt(center.X+r2, center.Y+r2),
+	
+	// 2つの回転するリング（ラチェット風）
+	for i := 0; i < 2; i++ {
+		direction := 1.0
+		if i%2 == 1 {
+			direction = -1.0
 		}
-		paint.FillShape(gtx.Ops, ringColor, clip.UniformRRect(ringRect, r2).Op(gtx.Ops))
+		angle := float64(elapsed) * 2.0 * direction
+		radius := gtx.Dp(unit.Dp(100 + i*40))
+		
+		// 12個の「歯」を持つリング
+		for n := 0; n < 12; n++ {
+			toothAngle := angle + float64(n)*math.Pi/6
+			tx := float64(center.X) + float64(radius)*math.Cos(toothAngle)
+			ty := float64(center.Y) + float64(radius)*math.Sin(toothAngle)
+			
+			toothSize := gtx.Dp(unit.Dp(8))
+			toothRect := image.Rectangle{
+				Min: image.Pt(int(tx)-toothSize, int(ty)-toothSize),
+				Max: image.Pt(int(tx)+toothSize, int(ty)+toothSize),
+			}
+			paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(toothRect).Op())
+		}
 	}
 
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.H3(s.Theme, "封印を解析中…")
+				lbl := material.H4(s.Theme, "UNSEALING")
 				lbl.Color = ColorPrimary
+				lbl.Alignment = text.Middle
 				return lbl.Layout(gtx)
 			}),
-			layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+			// プログレスバー
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				dots := ""
-				n := int(elapsed*3) % 4
-				for i := 0; i < n; i++ {
-					dots += "・"
+				width := gtx.Dp(240)
+				height := gtx.Dp(2)
+				barRect := image.Rectangle{Max: image.Pt(width, height)}
+				paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(barRect).Op())
+				
+				progressWidth := int(float64(width) * progress)
+				progressRect := image.Rectangle{Max: image.Pt(progressWidth, height)}
+				paint.FillShape(gtx.Ops, ColorPrimary, clip.Rect(progressRect).Op())
+				
+				return layout.Dimensions{Size: image.Pt(width, height)}
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
+			// 整合性チェックログ
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				logs := []string{
+					"BOOTING IIS-v2126...",
+					"VERIFYING TEMPORAL INTEGRITY...",
+					"ENTROPY CHECK: NOMINAL",
+					"DECRYPTING CENTURY-BLOCK...",
+					"IIS-STANDARD STATUS: OK",
 				}
-				lbl := material.Body1(s.Theme, dots)
-				lbl.Color = ColorPrimaryDim
+				idx := int(elapsed * 4)
+				if idx >= len(logs) {
+					idx = len(logs) - 1
+				}
+				lbl := material.Caption(s.Theme, logs[idx])
+				lbl.Color = ColorTextDim
 				return lbl.Layout(gtx)
 			}),
 		)

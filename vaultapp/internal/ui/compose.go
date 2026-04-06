@@ -48,10 +48,9 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 				)
 			})
 		}),
-		// 区切り線
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(1))
-			paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(image.Rectangle{Max: size}).Op())
+			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(2))
+			paint.FillShape(gtx.Ops, ColorPrimary, clip.Rect(image.Rectangle{Max: size}).Op())
 			return layout.Dimensions{Size: size}
 		}),
 		// 本文エリア
@@ -143,10 +142,10 @@ func (s *AppState) labeledField(gtx layout.Context, label string, field func(lay
 		layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
 		layout.Rigid(field),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
-		// 下線
+		// 2126年標準: 堅牢な境界線
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(1))
-			paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(image.Rectangle{Max: size}).Op())
+			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(2)) // 太さを2dpに
+			paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Rect(image.Rectangle{Max: size}).Op())
 			return layout.Dimensions{Size: size}
 		}),
 	)
