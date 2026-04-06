@@ -145,100 +145,53 @@ func (s *AppState) layoutDriftwood(gtx layout.Context) layout.Dimensions {
 }
 
 func (s *AppState) layoutVaultItem(gtx layout.Context, i int, v *vault.Vault) layout.Dimensions {
-	return layout.Inset{
-		Bottom: unit.Dp(8), Left: unit.Dp(24), Right: unit.Dp(24),
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		// 2126年標準: モノリス・ブロックデザイン
-		thickness := gtx.Dp(unit.Dp(float32(v.LayerCount) * 2))
-		if thickness > gtx.Dp(20) {
-			thickness = gtx.Dp(20)
-		}
-
-		// 底面の影（厚み）
-		shadowRect := image.Rectangle{
-			Min: image.Pt(0, thickness),
-			Max: gtx.Constraints.Max,
-		}
-		paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(shadowRect).Op())
-		
-		// メインの前面
-		topRect := image.Rectangle{
-			Max: image.Pt(gtx.Constraints.Max.X, gtx.Constraints.Max.Y-thickness),
-		}
-		paint.FillShape(gtx.Ops, ColorSurface, clip.Rect(topRect).Op())
-
-		// 左端の「不変の境界」
-		borderColor := ColorLocked
-		if v.State == vault.StateUnlockable {
-			borderColor = ColorPrimary
-		} else if v.State == vault.StateOpened {
-			borderColor = ColorPrimaryDim
-		}
-		
-		borderWidth := gtx.Dp(4)
-		borderRect := image.Rectangle{Max: image.Pt(borderWidth, gtx.Constraints.Max.Y-thickness)}
-		paint.FillShape(gtx.Ops, borderColor, clip.Rect(borderRect).Op())
-
-		// 世紀の刻印 (Century Pulse): 1年経過ごとに1本のノッチ
-		yearsPassed := int(time.Since(v.CreatedAt).Hours() / (24 * 365))
-		// デモ用に、1分=1年とみなしてノッチを表示する（実運用では1年に変更）
-		// yearsPassed = int(time.Since(v.CreatedAt).Minutes()) 
-		
-		for n := 0; n < yearsPassed && n < 100; n++ {
-			yOff := gtx.Dp(unit.Dp(float32(n)*3 + 2))
-			if yOff > gtx.Constraints.Max.Y-2 {
-				break
-			}
-			notchRect := image.Rectangle{
-				Min: image.Pt(0, yOff),
-				Max: image.Pt(borderWidth+gtx.Dp(4), yOff+gtx.Dp(1)),
-			}
-			paint.FillShape(gtx.Ops, ColorText, clip.Rect(notchRect).Op())
-		}
-
-		return material.Clickable(gtx, &s.SelectBtns[i], func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{
-				Top: unit.Dp(16), Bottom: unit.Dp(16),
-				Left: unit.Dp(24), Right: unit.Dp(18),
-			}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{Bottom: unit.Dp(32), Left: unit.Dp(40), Right: unit.Dp(40)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		// 思考の星図における一つの残響 (Echo as a Star)
+		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				// 記憶の星（粒子）
+				size := gtx.Dp(20)
+				dr := image.Rectangle{Max: image.Pt(size, size)}
+				
+				color := ColorPrimaryDim
+				if v.State == vault.StateOpened || v.State == vault.StateUnlockable {
+					color = ColorPrimary
+				}
+				
+				paint.FillShape(gtx.Ops, color, clip.Ellipse(dr).Op(gtx.Ops))
+				return layout.Dimensions{Size: image.Pt(size, size)}
+			}),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(24)}.Layout),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					// タイトル行
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								title := material.H6(s.Theme, v.Title)
-								if v.State == vault.StateSealed {
-									title.Color = ColorTextDim
-								} else if v.State == vault.StateOpened {
-									title.Color = ColorPrimary
-								}
-								return title.Layout(gtx)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										if v.LayerCount > 0 {
-											return s.layoutLayerBadge(gtx, v.LayerCount)
-										}
-										return layout.Dimensions{}
-									}),
-									layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return s.layoutStateBadge(gtx, v.State)
-									}),
-								)
-							}),
-						)
+						lbl := material.H5(s.Theme, v.Title)
+						lbl.Color = ColorText
+						return lbl.Layout(gtx)
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(6)}.Layout),
-					// サブ情報
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return s.layoutVaultItemInfo(gtx, v)
 					}),
 				)
-			})
-		})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return s.layoutInteractBtn(gtx, i, v)
+			}),
+		)
 	})
+}
+
+func (s *AppState) layoutInteractBtn(gtx layout.Context, i int, v *vault.Vault) layout.Dimensions {
+	label := "同調 (RESONATE)"
+	if v.State == vault.StateOpened {
+		label = "再臨 (REVISIT)"
+	}
+	btn := material.Button(s.Theme, &s.SelectBtns[i], label)
+	btn.Background = ColorSurfaceHigh
+	btn.Color = ColorPrimary
+	btn.Inset = layout.Inset{Top: unit.Dp(8), Bottom: unit.Dp(8), Left: unit.Dp(16), Right: unit.Dp(16)}
+	btn.TextSize = unit.Sp(16)
+	return btn.Layout(gtx)
 }
 
 func (s *AppState) layoutStateBadge(gtx layout.Context, state vault.State) layout.Dimensions {
