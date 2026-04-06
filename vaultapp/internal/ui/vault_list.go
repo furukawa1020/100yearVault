@@ -67,20 +67,23 @@ func (s *AppState) initNeuralSpace() {
 	if s.InitOnce {
 		return
 	}
-	s.Particles = make([]Particle, 1024) // 1024 粒子
+	s.Particles = make([]Particle, 4096) // 4096 粒子 (極限密度)
 	for i := range s.Particles {
-		// 3D マハラノビス空間：楕円体状に分布
+		// 3D マハラノビス空間：歪んだ楕円体状に分布
 		angle1 := rand.Float64() * 2 * math.Pi
 		angle2 := rand.Float64() * math.Pi
-		dist := 100 + rand.Float64()*400
+		// 軸ごとに異なる分散（共分散行列のイメージ）
+		distX := 150 + rand.Float64()*450
+		distY := 100 + rand.Float64()*300
+		distZ := 200 + rand.Float64()*600
 		
 		s.Particles[i] = Particle{
-			X: float32(math.Sin(angle2)*math.Cos(angle1) * dist),
-			Y: float32(math.Sin(angle2)*math.Sin(angle1) * dist),
-			Z: float32(math.Cos(angle2) * dist),
-			VX: float32(rand.NormFloat64() * 0.2),
-			VY: float32(rand.NormFloat64() * 0.2),
-			VZ: float32(rand.NormFloat64() * 0.2),
+			X: float32(math.Sin(angle2)*math.Cos(angle1) * distX),
+			Y: float32(math.Sin(angle2)*math.Sin(angle1) * distY),
+			Z: float32(math.Cos(angle2) * distZ),
+			VX: float32(rand.NormFloat64() * 0.1),
+			VY: float32(rand.NormFloat64() * 0.1),
+			VZ: float32(rand.NormFloat64() * 0.1),
 			Life: rand.Float32(),
 		}
 	}
@@ -127,80 +130,86 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 	return material.Clickable(gtx, &s.NeuralSurface, func(gtx layout.Context) layout.Dimensions {
 		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-			// 1. 三次元演算レイヤー
+			// 1. 三次元演算レイヤー (Ultimate Singularity Engine)
 			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 				center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
-				focalLength := float32(800) // 焦点距離
+				focalLength := float32(900) // 焦点距離
 				
-				// A. 3D 粒子シミュレーション (Perspective Projection)
+				// A. 4096 粒子 3D シミュレーション
 				for i := range s.Particles {
 					p := &s.Particles[i]
 					
-					// 回転演算
-					cosR, sinR := float32(math.Cos(0.01)), float32(math.Sin(0.01))
-					nx := p.X*cosR - p.Z*sinR
-					nz := p.X*sinR + p.Z*cosR
+					// 3D 回転 (X軸 & Y軸)
+					rotX, rotY := 0.005, 0.012
+					sinX, cosX := float32(math.Sin(rotX)), float32(math.Cos(rotX))
+					sinY, cosY := float32(math.Sin(rotY)), float32(math.Cos(rotY))
+					
+					// Y軸回転
+					nx := p.X*cosY - p.Z*sinY
+					nz := p.X*sinY + p.Z*cosY
 					p.X, p.Z = nx, nz
+					// X軸回転
+					ny := p.Y*cosX - p.Z*sinX
+					nz = p.Y*sinX + p.Z*cosX
+					p.Y, p.Z = ny, nz
 
-					// マウスインタラクション (斥力)
+					// マウスインタラクション (3D 斥力)
 					dx := p.X - (s.MousePos.X - center.X)
 					dy := p.Y - (s.MousePos.Y - center.Y)
 					distSq := dx*dx + dy*dy
-					if distSq < 10000 {
-						force := (10000 - distSq) / 10000
-						p.VX += dx * force * 0.1
-						p.VY += dy * force * 0.1
+					if distSq < 15000 {
+						force := (15000 - distSq) / 15000
+						p.VX += dx * force * 0.15
+						p.VY += dy * force * 0.15
 					}
 
 					p.X += p.VX
 					p.Y += p.VY
-					p.X *= 0.99 // 減衰
-					p.Y *= 0.99
+					p.X *= 0.98 
+					p.Y *= 0.98
 					
 					// 3D -> 2D 投影
-					zPos := p.Z + 800 // 奥へオフセット
-					if zPos <= 10 { continue }
+					zWorld := p.Z + 900 // カメラからの距離
+					if zWorld <= 50 { continue }
 					
-					sx := center.X + (p.X * focalLength) / zPos
-					sy := center.Y + (p.Y * focalLength) / zPos
+					sx := center.X + (p.X * focalLength) / zWorld
+					sy := center.Y + (p.Y * focalLength) / zWorld
 					
-					// 遠近による不透明度とサイズ (Extreme Highlight)
-					pointSize := 0.5 + (1200 / zPos)
-					if pointSize > 5 { pointSize = 5 }
+					// 遠近による不透明率とサイズの最大化
+					size := 1.2 + (800 / zWorld)
+					if size > 6 { size = 6 }
 					
-					alphaVal := uint32(255 * (800 / zPos))
+					alphaVal := uint32(255 * (900 / zWorld))
 					if alphaVal > 255 { alphaVal = 255 }
-					alpha := uint8(alphaVal)
 					
 					c := ColorPrimary
-					c.A = alpha
+					c.A = uint8(alphaVal)
 					
-					rect := image.Rect(int(sx), int(sy), int(sx+pointSize), int(sy+pointSize))
+					rect := image.Rect(int(sx), int(sy), int(sx+size), int(sy+size))
 					paint.FillShape(gtx.Ops, c, clip.Rect(rect).Op())
 				}
 
-				// B. 3D 回転ヘキサゴン・ゲート (Dual)
+				// B. 3D 回転ヘキサゴン・ゲート
 				for i := 1; i <= 2; i++ {
-					rot := s.Rotation * float32(i) * 0.5
-					size := float32(180 * i)
+					rot := s.Rotation * float32(i) * 0.4
+					size := float32(200 * i)
 					
 					var path clip.Path
 					path.Begin(gtx.Ops)
-					
 					for a := 0.0; a < 2*math.Pi; a += math.Pi/3 {
 						curA := a + float64(rot)
 						vx := size * float32(math.Cos(curA))
 						vy := size * float32(math.Sin(curA))
-						vz := float32(math.Cos(float64(s.Rotation*2))) * 150
+						vz := float32(math.Cos(float64(s.Rotation))) * 100
 						
-						tz := vz + 1200
+						tz := vz + 1000
 						tsx := center.X + (vx * focalLength) / tz
 						tsy := center.Y + (vy * focalLength) / tz
 						
 						if a == 0 { path.MoveTo(f32.Pt(tsx, tsy)) } else { path.LineTo(f32.Pt(tsx, tsy)) }
 					}
 					path.Close()
-					paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Stroke{Path: path.End(), Width: 1.5}.Op())
+					paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Stroke{Path: path.End(), Width: 2}.Op())
 				}
 
 				return layout.Dimensions{Size: gtx.Constraints.Max}
