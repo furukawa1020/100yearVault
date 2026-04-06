@@ -164,10 +164,11 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					sx := center.X + (p.X * focalLength) / zPos
 					sy := center.Y + (p.Y * focalLength) / zPos
 					
-					// 遠近による不透明度
+					// 遠近による不透明度とサイズ
 					pointSize := 1.0 + (500 / zPos)
-					alpha := uint8(255 * (1000 / zPos))
-					if alpha > 255 { alpha = 255 }
+					alphaVal := uint32(255 * (1000 / zPos))
+					if alphaVal > 255 { alphaVal = 255 }
+					alpha := uint8(alphaVal)
 					
 					c := ColorPrimary
 					c.A = alpha

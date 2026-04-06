@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/font/gofont"
+	"gioui.org/io/pointer"
+	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -110,20 +113,36 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		w.Invalidate()
 	}
 
-	// Neural Void Logic (Deep-Dive v2.0)
-	if state.CurrentScreen == ui.ScreenVaultList {
-		if state.NeuralSurface.Clicked(gtx) {
-			if state.NeuralVault != nil {
-				v := state.NeuralVault
-				// 刻が満ちているか、既に開封済みの場合は「システム・アクセス」へ
-				if v.State == vault.StateOpened || time.Now().After(v.UnlockAt) {
-					state.Ritual.ActiveVault = v
-					state.CurrentScreen = ui.ScreenRitual
-					w.Invalidate()
+			// イベント・フィルタリング：マウス座標の捕捉 (Interactive Singularity)
+			for {
+				ev, ok := gtx.Event(
+					pointer.Filter{
+						Target: &state.NeuralSurface,
+						Kinds:  pointer.Move | pointer.Press | pointer.Drag,
+					},
+				)
+				if !ok {
+					break
+				}
+				if xev, ok := ev.(pointer.Event); ok {
+					state.MousePos = xev.Position
 				}
 			}
-		}
-	}
+
+			// Neural Void Logic (Singularity v4.0)
+			if state.CurrentScreen == ui.ScreenVaultList {
+				if state.NeuralSurface.Clicked(gtx) {
+					if state.NeuralVault != nil {
+						v := state.NeuralVault
+						// 刻が満ちているか、既に開封済みの場合は「システム・アクセス」へ
+						if v.State == vault.StateOpened || time.Now().After(v.UnlockAt) {
+							state.Ritual.ActiveVault = v
+							state.CurrentScreen = ui.ScreenRitual
+							w.Invalidate()
+						}
+					}
+				}
+			}
 
 	// Compose Screen Logic
 	if state.CurrentScreen == ui.ScreenCompose {
