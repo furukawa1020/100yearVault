@@ -46,7 +46,10 @@ func NewStore(dbPath string) (*Store, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, err
 	}
-	
+
+	// 2126年 移行措置 (Migration): layer_count がない場合は追加
+	_, _ = db.Exec("ALTER TABLE vaults ADD COLUMN layer_count INTEGER DEFAULT 0")
+
 	return &Store{db: db}, nil
 }
 
