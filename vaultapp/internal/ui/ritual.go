@@ -278,14 +278,15 @@ func (s *AppState) layoutProcessing(gtx layout.Context, r *RitualState) layout.D
 				return layout.Dimensions{Size: image.Pt(width, height)}
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
-			// 整合性チェックログ
+			// 思考パターンの照合ログ
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				logs := []string{
-					"BOOTING IIS-v2126...",
-					"VERIFYING TEMPORAL INTEGRITY...",
-					"ENTROPY CHECK: NOMINAL",
-					"DECRYPTING CENTURY-BLOCK...",
-					"IIS-STANDARD STATUS: OK",
+					"思考パターンの抽出を開始...",
+					"ニューラル・ネットワークを走査中...",
+					"過去のセルフ・イメージを復元...",
+					"共鳴周波数を調整中...",
+					"残響の解像度を正規化中...",
+					"同調完了。意識の連結に成功しました。",
 				}
 				idx := int(elapsed * 4)
 				if idx >= len(logs) {
@@ -311,7 +312,7 @@ func (s *AppState) layoutRevealed(gtx layout.Context, r *RitualState) layout.Dim
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.H5(s.Theme, "封印が解かれました")
+				lbl := material.H5(s.Theme, "残響と同調しました")
 				lbl.Color = ColorPrimary
 				return lbl.Layout(gtx)
 			}),
@@ -335,9 +336,9 @@ func (s *AppState) layoutRevealed(gtx layout.Context, r *RitualState) layout.Dim
 			layout.Rigid(layout.Spacer{Height: unit.Dp(32)}.Layout),
 			// 戻るボタン
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(s.Theme, &r.CancelBtn, "保管庫に戻る")
+				btn := material.Button(s.Theme, &r.CancelBtn, "星図に帰還する (RETURN)")
 				btn.Background = ColorSurfaceHigh
-				btn.Color = ColorText
+				btn.Color = ColorPrimary
 				return btn.Layout(gtx)
 			}),
 		)

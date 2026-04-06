@@ -46,9 +46,9 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 						return btn.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						title := "時空への放流"
+						title := "残響の刻印"
 						if c.AddLayerMode && c.TargetVault != nil {
-							title = "地層の重合: " + c.TargetVault.Title
+							title = "残響の同調: " + c.TargetVault.Title
 						}
 						h2 := material.H4(s.Theme, title)
 						h2.Color = ColorPrimary
@@ -114,9 +114,9 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 					layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
 					// 封印ボタン
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						label := "時空の海へ放流する (RELEASE)"
+						label := "星図にこの残響を刻印する (ETCH)"
 						if c.AddLayerMode {
-							label = "この地層を同期させる (SYNC)"
+							label = "残響を同期させる (SYNC)"
 						}
 						btn := material.Button(s.Theme, &c.SealBtn, label)
 						btn.TextSize = unit.Sp(18)
