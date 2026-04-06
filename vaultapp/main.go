@@ -58,7 +58,7 @@ func loop(w *app.Window) error {
 	}
 	state.Compose.UnlockDays.SetText("36500")
 
-	// QSP v2126: Synthe-Mem (Chimera Synthesis)
+	// LAP v2126: Amber Sync (琥珀の共鳴)
 	var hints []string
 	for _, v := range vaults {
 		if v.State == vault.StateOpened && v.PreviewHint != "" {
@@ -68,12 +68,12 @@ func loop(w *app.Window) error {
 	if len(hints) > 0 {
 		h := hints[rand.Intn(len(hints))]
 		if len(h) > 10 {
-			state.DailyFragment = h[:10] + "... が 2126年の風に吹かれている。"
+			state.DailyFragment = h[:10] + "... が 100年の琥珀の中で輝いている。"
 		} else {
-			state.DailyFragment = h + " ── 永遠に同期中。"
+			state.DailyFragment = h + " ── 琥珀に刻まれた永遠。"
 		}
 	} else {
-		state.DailyFragment = "時空の海は静かだ。何かを放流しなさい。"
+		state.DailyFragment = "琥珀はまだ透明だ。最初の一片を託しなさい。"
 	}
 
 	var ops op.Ops
@@ -183,14 +183,13 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 								return
 							}
 						} else {
-							// 新規Vaultの作成 (時空への放流)
+							// 新規Vaultの作成 (琥珀への信託)
 							days, _ := strconv.ParseFloat(daysInput, 64)
 							if days <= 0 {
 								days = 36500 
 							}
 
-							// 2126年 QSP: 到着日の方流化 (ランダム性)
-							// 1分後から指定日数の間でランダムに漂着
+							// 2126年 LAP: 琥珀の成熟 (ランダム性と意志の重畳)
 							maxSeconds := days * 24 * 60 * 60
 							randomSeconds := float64(time.Now().UnixNano()%int64(maxSeconds))
 							

@@ -122,21 +122,21 @@ func (s *AppState) layoutDriftwood(gtx layout.Context) layout.Dimensions {
 	return layout.Inset{
 		Left: unit.Dp(40), Right: unit.Dp(40),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		// 時空の境界線（虹彩の脈動）表示
+		// 琥珀の残り火（生命の輝き）表示
 		
 		// 背景ブロック
 		dr := image.Rectangle{Max: gtx.Constraints.Max}
 		paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(dr).Op())
 		
-		// 虹彩の脈動
+		// 生命の鼓動
 		accent := image.Rectangle{Max: image.Pt(gtx.Dp(8), gtx.Constraints.Max.Y)}
-		paint.FillShape(gtx.Ops, ColorGlow1, clip.Rect(accent).Op())
+		paint.FillShape(gtx.Ops, ColorPrimary, clip.Rect(accent).Op())
 
 		return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.Caption(s.Theme, "時空の漂着物 (DRIFTWOOD FROM THE TIME-SEA)")
-					lbl.Color = ColorGlow1
+					lbl := material.Caption(s.Theme, "琥珀の残り火 (LIVING EMBERS FROM THE PAST)")
+					lbl.Color = ColorPrimary
 					return lbl.Layout(gtx)
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
@@ -255,8 +255,8 @@ func (s *AppState) layoutStateBadge(gtx layout.Context, state vault.State) layou
 		label = "封印中"
 		bg = ColorLocked
 	case vault.StateUnlockable:
-		label = "解錠可能"
-		bg = ColorUnlockable
+		label = "解凍可能"
+		bg = ColorPrimary
 	case vault.StateOpened:
 		label = "開封済"
 		bg = ColorPrimaryDim
@@ -308,8 +308,8 @@ func (s *AppState) layoutVaultItemInfo(gtx layout.Context, v *vault.Vault) layou
 			}
 			infoColor = ColorTextDim
 		} else {
-			info = "解錠条件が成立しています。開封儀式を執行できます。"
-			infoColor = ColorUnlockable
+			info = "琥珀が十分な熱を持っています。解凍儀式を開始できます。"
+			infoColor = ColorPrimary
 		}
 	case vault.StateOpened:
 		info = fmt.Sprintf("開封日時: %s", v.OpenedAt.Format("2006年01月02日 15:04"))

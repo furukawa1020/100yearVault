@@ -210,8 +210,8 @@ func (s *AppState) layoutLockedInfo(gtx layout.Context, remaining time.Duration)
 func (s *AppState) layoutUnlockableInfo(gtx layout.Context) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			lbl := material.H5(s.Theme, "開封条件が成立しています")
-			lbl.Color = ColorUnlockable
+			lbl := material.H5(s.Theme, "琥珀の解凍準備が整っています")
+			lbl.Color = ColorPrimary
 			return lbl.Layout(gtx)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(4)}.Layout),
