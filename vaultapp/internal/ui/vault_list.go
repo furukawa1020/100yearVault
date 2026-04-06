@@ -87,41 +87,65 @@ func (s *AppState) LayoutList(gtx layout.Context) layout.Dimensions {
 	)
 }
 
-func (s *AppState) layoutHeader(gtx layout.Context) layout.Dimensions {
+func (s *AppState) layoutDashboardHeader(gtx layout.Context) layout.Dimensions {
 	return layout.Inset{
-		Top: unit.Dp(22), Bottom: unit.Dp(18),
-		Left: unit.Dp(32), Right: unit.Dp(32),
+		Top: unit.Dp(32), Bottom: unit.Dp(24),
+		Left: unit.Dp(40), Right: unit.Dp(40),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Spacing: layout.SpaceBetween, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						lbl := material.H4(s.Theme, "百年金庫")
+						lbl := material.H3(s.Theme, "2126 RESONANCE")
 						lbl.Color = ColorPrimary
 						return lbl.Layout(gtx)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						sub := material.Caption(s.Theme, "HUNDRED-YEAR VAULT  ──  記憶封印装置")
+						sub := material.H6(s.Theme, s.ConnectionStatus)
 						sub.Color = ColorTextDim
 						return sub.Layout(gtx)
 					}),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(s.Theme, &s.NewVaultBtn, "＋  記憶を封印する")
+				btn := material.Button(s.Theme, &s.NewVaultBtn, "＋ 記憶を封じる")
 				btn.Background = ColorPrimary
 				btn.Color = ColorBackground
+				btn.TextSize = unit.Sp(20)
 				return btn.Layout(gtx)
 			}),
 		)
 	})
 }
 
-func (s *AppState) layoutDivider(gtx layout.Context) layout.Dimensions {
-	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(1))
-	dr := image.Rectangle{Max: size}
-	paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(dr).Op())
-	return layout.Dimensions{Size: size}
+func (s *AppState) layoutDailyFragment(gtx layout.Context) layout.Dimensions {
+	return layout.Inset{
+		Left: unit.Dp(40), Right: unit.Dp(40),
+	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		// 背景ブロック
+		dr := image.Rectangle{Max: gtx.Constraints.Max}
+		paint.FillShape(gtx.Ops, ColorSurfaceHigh, clip.Rect(dr).Op())
+		
+		// 左端のアクセント
+		accent := image.Rectangle{Max: image.Pt(gtx.Dp(8), gtx.Constraints.Max.Y)}
+		paint.FillShape(gtx.Ops, ColorPrimary, clip.Rect(accent).Op())
+
+		return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					lbl := material.Caption(s.Theme, "本日の共鳴 (DAILY FRAGMENT FROM 2026)")
+					lbl.Color = ColorPrimary
+					return lbl.Layout(gtx)
+				}),
+				layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					lbl := material.H4(s.Theme, s.DailyFragment)
+					lbl.Color = ColorText
+					return lbl.Layout(gtx)
+				}),
+			)
+		})
+	})
 }
 
 func (s *AppState) layoutVaultItem(gtx layout.Context, i int, v *vault.Vault) layout.Dimensions {

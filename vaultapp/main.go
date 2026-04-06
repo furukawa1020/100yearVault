@@ -50,11 +50,23 @@ func loop(w *app.Window) error {
 	fontPath := filepath.Join(".", "assets", "fonts", "font.ttf")
 	th := ui.NewVaultTheme(fontPath)
 	state := &ui.AppState{
-		Theme:      th,
-		Vaults:     vaults,
-		SelectBtns: make([]widget.Clickable, len(vaults)),
+		Theme:            th,
+		Vaults:           vaults,
+		SelectBtns:       make([]widget.Clickable, len(vaults)),
+		ConnectionStatus: "CONNECTION TO 2026: STABLE [99.9%]",
 	}
 	state.Compose.UnlockDays.SetText("36500")
+
+	// 2126 RESONANCE: Pick a random fragment from opened vaults
+	for _, v := range vaults {
+		if v.State == vault.StateOpened && v.PreviewHint != "" {
+			state.DailyFragment = v.PreviewHint
+			break // For now, just the first one found
+		}
+	}
+	if state.DailyFragment == "" {
+		state.DailyFragment = "接続待機中... 最初の記憶を封じなさい。"
+	}
 
 	var ops op.Ops
 	for {
