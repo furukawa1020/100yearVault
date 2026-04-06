@@ -13,16 +13,16 @@ import (
 )
 
 var (
-	// 「木漏れ日の記憶 (Komorebi Echoes)」パレット
-	ColorBackground  = color.NRGBA{R: 5, G: 15, B: 5, A: 255}    // 深い森の静寂 (Deep Forest)
-	ColorSurface     = color.NRGBA{R: 10, G: 30, B: 10, A: 255}   // 陽射しの隙間
-	ColorSurfaceHigh = color.NRGBA{R: 30, G: 60, B: 30, A: 255}   // 葉の輝き
-	ColorPrimary     = color.NRGBA{R: 255, G: 191, B: 0, A: 255}  // 琥珀色の陽光 (Amber Sunlight)
-	ColorPrimaryDim  = color.NRGBA{R: 150, G: 110, B: 0, A: 255}  // 夕凪の光
-	ColorText        = color.NRGBA{R: 250, G: 245, B: 230, A: 255} // 乳白色の記憶 (Antique Cream)
-	ColorTextDim     = color.NRGBA{R: 200, G: 190, B: 160, A: 255} // セピアのささやき
-	ColorLocked      = color.NRGBA{R: 5, G: 10, B: 5, A: 255}     // 凪
-	ColorDanger      = color.NRGBA{R: 255, G: 80, B: 80, A: 255}   // 鼓動
+	// 「電脳の深淵 (Neural Void)」パレット - ハード・サイバー
+	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}     // 漆黒 (Pitch Black)
+	ColorSurface     = color.NRGBA{R: 0, G: 20, B: 20, A: 255}    // 深淵の底
+	ColorSurfaceHigh = color.NRGBA{R: 0, G: 40, B: 40, A: 255}    // データの境界
+	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255}  // ネオンシアン (Cyber Cyan)
+	ColorPrimaryDim  = color.NRGBA{R: 0, G: 150, B: 150, A: 255}  // 減衰した信号
+	ColorText        = color.NRGBA{R: 220, G: 255, B: 255, A: 255} // 高輝度データ (High Contrast)
+	ColorTextDim     = color.NRGBA{R: 100, G: 200, B: 200, A: 255} // 背景データ
+	ColorLocked      = color.NRGBA{R: 0, G: 0, B: 0, A: 255}      // NULL
+	ColorDanger      = color.NRGBA{R: 255, G: 0, B: 0, A: 255}     // ERROR
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
