@@ -104,10 +104,10 @@ func (s *AppState) RotateNeural() {
 // ───────────────────────────────────────────────
 // 背景を塗る共通ヘルパー
 // ───────────────────────────────────────────────
-func fillBackground(gtx l// ───────────────────────────────────────────────
-// 電脳領域の深淵: Neural Deep-Dive v2.0 (Extreme)
-// ───────────────────────────────────────────────
-func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
+func fillBackground(gtx layout.Context, c color.NRGBA) {
+	dr := image.Rectangle{Max: image.Pt(gtx.Constraints.Max.X, gtx.Constraints.Max.Y)}
+	paint.FillShape(gtx.Ops, c, clip.Rect(dr).Op())
+}
 	s.initNeuralSpace()
 	s.FrameCount++
 	
