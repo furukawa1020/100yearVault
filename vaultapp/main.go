@@ -115,7 +115,7 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			pass := state.Compose.Passphrase.Text()
 			daysInput := state.Compose.UnlockDays.Text()
 
-			if title == "" {
+			if title == "" && !state.Compose.AddLayerMode {
 				state.Compose.ErrorMessage = "タイトルを入力してください。"
 				w.Invalidate()
 			} else if pass == "" {
@@ -125,15 +125,15 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 				state.Compose.ErrorMessage = "合言葉は少なくとも4文字以上必要です。"
 				w.Invalidate()
 			} else {
-				// Parse days (allowing partial days for demo testing)
-				days, err := strconv.ParseFloat(daysInput, 64)
-				if err != nil {
-					days = 36500 // 100 years default if invalid
+				vid := ""
+				if state.Compose.AddLayerMode && state.Compose.TargetVault != nil {
+					vid = state.Compose.TargetVault.ID
+				} else {
+					vid = fmt.Sprintf("v%d", time.Now().Unix())
 				}
-				unlockAt := time.Now().Add(time.Duration(days * 24 * 60 * 60 * float64(time.Second)))
 
-				vid := fmt.Sprintf("v%d", time.Now().Unix())
-				cipherPath := filepath.Join("vaults", vid+".age")
+				layerID := fmt.Sprintf("l%d", time.Now().UnixNano())
+				cipherPath := filepath.Join("vaults", layerID+".age")
 				
 				// Ensure vaults directory exists
 				os.MkdirAll("vaults", 0700)
@@ -149,22 +149,43 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 						state.Compose.ErrorMessage = "ファイルの保存に失敗しました。"
 						w.Invalidate()
 					} else {
-						v := &vault.Vault{
-							ID:                vid,
-							Title:             title,
-							State:             vault.StateSealed,
-							CreatedAt:         time.Now(),
-							UnlockAt:          unlockAt,
-							CipherPath:        cipherPath,
-							RequirePassphrase: true,
+						if state.Compose.AddLayerMode && state.Compose.TargetVault != nil {
+							// Layerの追加
+							l := &vault.Layer{
+								ID:         layerID,
+								ParentID:   vid,
+								CipherPath: cipherPath,
+								CreatedAt:  time.Now(),
+							}
+							store.SaveLayer(l)
+						} else {
+							// 新規Vaultの作成
+							// Parse days (only for new vaults)
+							days, _ := strconv.ParseFloat(daysInput, 64)
+							if days <= 0 {
+								days = 36500 
+							}
+							unlockAt := time.Now().Add(time.Duration(days * 24 * 60 * 60 * float64(time.Second)))
+
+							v := &vault.Vault{
+								ID:                vid,
+								Title:             title,
+								State:             vault.StateSealed,
+								CreatedAt:         time.Now(),
+								UnlockAt:          unlockAt,
+								CipherPath:        cipherPath, // 最初の層として保存
+								RequirePassphrase: true,
+							}
+							store.SaveVault(v)
 						}
-						store.SaveVault(v)
 						
 						// Success Cleanup
 						state.Compose.Title.SetText("")
 						state.Compose.Body.SetText("")
 						state.Compose.Passphrase.SetText("")
 						state.Compose.ErrorMessage = ""
+						state.Compose.AddLayerMode = false
+						state.Compose.TargetVault = nil
 						
 						// Refresh List
 						state.Vaults, _ = store.ListVaults()
