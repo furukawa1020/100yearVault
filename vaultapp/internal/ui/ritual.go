@@ -47,7 +47,7 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 		// 巨大な戻るエリア
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(s.Theme, &r.CancelBtn, "← やめる (CANCEL)")
+				btn := material.Button(s.Theme, &r.CancelBtn, "← 回想を終える")
 				btn.Background = ColorSurfaceHigh
 				btn.Color = ColorTextDim
 				btn.TextSize = unit.Sp(32)
@@ -72,7 +72,7 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 						
 						// パスフレーズ入力（巨大化）
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return s.labeledField(gtx, "合言葉を入力してください (KEY)", func(gtx layout.Context) layout.Dimensions {
+							return s.labeledField(gtx, "心に刻んだ「合言葉」を教えてください", func(gtx layout.Context) layout.Dimensions {
 								ed := material.Editor(s.Theme, &r.Password, "...")
 								ed.TextSize = unit.Sp(64)
 								ed.Color = ColorText
@@ -83,7 +83,7 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 
 						// 巨大な解凍ボタン
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							btn := material.Button(s.Theme, &r.UnlockBtn, "記憶を呼び覚ます (OPEN)")
+							btn := material.Button(s.Theme, &r.UnlockBtn, "扉をあける (OPEN)")
 							btn.Background = ColorPrimary
 							btn.Color = ColorBackground
 							btn.TextSize = unit.Sp(56)
@@ -114,7 +114,7 @@ func (s *AppState) layoutProcessing(gtx layout.Context, r *RitualState) layout.D
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.H2(s.Theme, "想い出を繋いでいます...")
+				lbl := material.H2(s.Theme, "あなたの鼓動と同期しています...")
 				lbl.Color = ColorPrimary
 				lbl.TextSize = unit.Sp(60)
 				return lbl.Layout(gtx)
@@ -157,7 +157,7 @@ func (s *AppState) layoutRevealed(gtx layout.Context, r *RitualState) layout.Dim
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(100)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					btn := material.Button(s.Theme, &r.CancelBtn, "もどる (BACK)")
+					btn := material.Button(s.Theme, &r.CancelBtn, "景色へ戻る")
 					btn.Background = ColorSurfaceHigh
 					btn.Color = ColorPrimary
 					btn.TextSize = unit.Sp(40)

@@ -35,7 +35,7 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 		// ヘッダー（戻るボタンを巨大化）
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(s.Theme, &c.BackBtn, "← やめる (CANCEL)")
+				btn := material.Button(s.Theme, &c.BackBtn, "← 景色へもどる")
 				btn.Background = ColorSurfaceHigh
 				btn.Color = ColorTextDim
 				btn.TextSize = unit.Sp(32)
@@ -61,8 +61,8 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 					
 					// 本文
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return s.labeledField(gtx, "今、伝えたいこと (MESSAGE) ※端末の音声入力も使えます", func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(s.Theme, &c.Body, "ここに指を置いて、話すようにお書きください...")
+						return s.labeledField(gtx, "いま、ここにある想い (VOICE OK)", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Body, "そっと指を置いて、話すようにお聞かせください...")
 							ed.TextSize = unit.Sp(56)
 							ed.Color = ColorText
 							return ed.Layout(gtx)
@@ -72,9 +72,9 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 
 					// 封印ボタン（画面最下部に巨大配置）
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						label := "想いを灯す (ETCH)"
+						label := "想いを永い眠りにつかせる (ETCH)"
 						if c.AddLayerMode {
-							label = "想いを重ねる (SYNC)"
+							label = "今の想いを重ねる (SYNC)"
 						}
 						btn := material.Button(s.Theme, &c.SealBtn, label)
 						btn.Background = ColorPrimary
