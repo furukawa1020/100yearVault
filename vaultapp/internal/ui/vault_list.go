@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"gioui.org/layout"

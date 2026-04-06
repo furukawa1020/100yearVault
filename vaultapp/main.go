@@ -57,14 +57,14 @@ func loop(w *app.Window) error {
 	}
 	state.Compose.UnlockDays.SetText("36500")
 
-	state.RotateLantern()
+	state.RotateEcho()
 
-	// 自動巡回ループ
+	// 自動巡回ループ (100歳の呼吸に合わせた穏やかな間隔)
 	go func() {
 		for {
-			time.Sleep(5 * time.Second) // 5秒ごとに記憶が巡る
+			time.Sleep(10 * time.Second) // 10秒ごとに記憶が静かに巡る
 			if state.CurrentScreen == ui.ScreenVaultList {
-				state.RotateLantern()
+				state.RotateEcho()
 				w.Invalidate()
 			}
 		}
@@ -81,10 +81,10 @@ func loop(w *app.Window) error {
 			// Logic Handling
 			updateLogic(gtx, state, store, w)
 
-			// Main Layout Based on Screen
+			// Main Layout (心の風景)
 			switch state.CurrentScreen {
 			case ui.ScreenVaultList:
-				state.LayoutList(gtx)
+				state.LayoutEcho(gtx)
 			case ui.ScreenCompose:
 				state.LayoutCompose(gtx, &state.Compose)
 			case ui.ScreenRitual:
@@ -103,12 +103,12 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		w.Invalidate()
 	}
 
-	// List Screen Logic (Lantern Mode)
+	// Echo Mode Logic (心の風景)
 	if state.CurrentScreen == ui.ScreenVaultList {
-		if state.LanternBtn.Clicked(gtx) {
-			if state.LanternVault != nil {
-				// 開封可能・または既に開封済みの場合、Ritual画面へ遷移
-				v := state.LanternVault
+		if state.EchoSurface.Clicked(gtx) {
+			if state.EchoVault != nil {
+				// 刻が満ちているか、既に開封済みの場合は「儀式」へ
+				v := state.EchoVault
 				if v.State == vault.StateOpened || time.Now().After(v.UnlockAt) {
 					state.Ritual.ActiveVault = v
 					state.CurrentScreen = ui.ScreenRitual
@@ -304,7 +304,7 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 							state.Ritual.Password.SetText("") 
 							
 							// 2126 RESONANCE: Update state and rotate
-							state.RotateLantern()
+							state.RotateEcho()
 
 							// リストの同期
 							state.Vaults, _ = store.ListVaults()
