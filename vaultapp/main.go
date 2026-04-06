@@ -45,16 +45,6 @@ func loop(w *app.Window) error {
 
 	// Initial Load
 	vaults, _ := store.ListVaults()
-	if len(vaults) == 0 {
-		// Mock data for first run
-		v1 := &vault.Vault{
-			ID: "v1", Title: "Memory of Summer 2024", State: vault.StateSealed,
-			CreatedAt: time.Now().Add(-24 * time.Hour),
-			UnlockAt:  time.Now().Add(10 * time.Second), // For demo, make it quick
-		}
-		store.SaveVault(v1)
-		vaults, _ = store.ListVaults()
-	}
 
 	// UI State
 	fontPath := filepath.Join(".", "assets", "fonts", "font.ttf")
@@ -114,48 +104,74 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 	// Compose Screen Logic
 	if state.CurrentScreen == ui.ScreenCompose {
 		if state.Compose.BackBtn.Clicked(gtx) {
+			state.Compose.ErrorMessage = ""
 			state.CurrentScreen = ui.ScreenVaultList
 			w.Invalidate()
 		}
 		if state.Compose.SealBtn.Clicked(gtx) {
-			// Ritual is real! Let's seal it.
+			// Validation
 			title := state.Compose.Title.Text()
 			body := state.Compose.Body.Text()
 			pass := state.Compose.Passphrase.Text()
 			daysInput := state.Compose.UnlockDays.Text()
-			
-			// Parse days (allowing partial days for demo testing)
-			days, err := strconv.ParseFloat(daysInput, 64)
-			if err != nil {
-				days = 36500 // 100 years default if invalid
-			}
-			unlockAt := time.Now().Add(time.Duration(days * 24 * 60 * 60 * float64(time.Second)))
 
-			if title != "" && pass != "" {
+			if title == "" {
+				state.Compose.ErrorMessage = "タイトルを入力してください。"
+				w.Invalidate()
+			} else if pass == "" {
+				state.Compose.ErrorMessage = "封印のための合言葉（パスフレーズ）が必要です。"
+				w.Invalidate()
+			} else if len(pass) < 4 {
+				state.Compose.ErrorMessage = "合言葉は少なくとも4文字以上必要です。"
+				w.Invalidate()
+			} else {
+				// Parse days (allowing partial days for demo testing)
+				days, err := strconv.ParseFloat(daysInput, 64)
+				if err != nil {
+					days = 36500 // 100 years default if invalid
+				}
+				unlockAt := time.Now().Add(time.Duration(days * 24 * 60 * 60 * float64(time.Second)))
+
 				vid := fmt.Sprintf("v%d", time.Now().Unix())
 				cipherPath := filepath.Join("vaults", vid+".age")
 				
+				// Ensure vaults directory exists
+				os.MkdirAll("vaults", 0700)
+
 				// Encrypt
 				ciphertext, err := crypto.Encrypt([]byte(body), pass)
-				if err == nil {
-					os.WriteFile(cipherPath, ciphertext, 0600)
-					
-					v := &vault.Vault{
-						ID:                vid,
-						Title:             title,
-						State:             vault.StateSealed,
-						CreatedAt:         time.Now(),
-						UnlockAt:          unlockAt,
-						CipherPath:        cipherPath,
-						RequirePassphrase: true,
-						PassphraseHash:    pass, // For MVP, check plain; should be hash in real
-					}
-					store.SaveVault(v)
-					// Refresh
-					state.Vaults, _ = store.ListVaults()
-					state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
-					state.CurrentScreen = ui.ScreenVaultList
+				if err != nil {
+					state.Compose.ErrorMessage = "封印に失敗しました: " + err.Error()
 					w.Invalidate()
+				} else {
+					err = os.WriteFile(cipherPath, ciphertext, 0600)
+					if err != nil {
+						state.Compose.ErrorMessage = "ファイルの保存に失敗しました。"
+						w.Invalidate()
+					} else {
+						v := &vault.Vault{
+							ID:                vid,
+							Title:             title,
+							State:             vault.StateSealed,
+							CreatedAt:         time.Now(),
+							UnlockAt:          unlockAt,
+							CipherPath:        cipherPath,
+							RequirePassphrase: true,
+						}
+						store.SaveVault(v)
+						
+						// Success Cleanup
+						state.Compose.Title.SetText("")
+						state.Compose.Body.SetText("")
+						state.Compose.Passphrase.SetText("")
+						state.Compose.ErrorMessage = ""
+						
+						// Refresh List
+						state.Vaults, _ = store.ListVaults()
+						state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
+						state.CurrentScreen = ui.ScreenVaultList
+						w.Invalidate()
+					}
 				}
 			}
 		}
@@ -165,12 +181,15 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 	if state.CurrentScreen == ui.ScreenRitual {
 		if state.Ritual.CancelBtn.Clicked(gtx) {
 			state.Ritual.IsProcessing = false
+			state.Ritual.IsRevealed = false
+			state.Ritual.ErrorMessage = ""
 			state.CurrentScreen = ui.ScreenVaultList
 			w.Invalidate()
 		}
-		if state.Ritual.UnlockBtn.Clicked(gtx) && !state.Ritual.IsProcessing {
+		if state.Ritual.UnlockBtn.Clicked(gtx) && !state.Ritual.IsProcessing && !state.Ritual.IsRevealed {
 			state.Ritual.IsProcessing = true
 			state.Ritual.ProcessingSince = time.Now()
+			state.Ritual.ErrorMessage = ""
 			w.Invalidate()
 		}
 
@@ -178,33 +197,46 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			if time.Since(state.Ritual.ProcessingSince) > 2*time.Second {
 				v := state.Ritual.ActiveVault
 				pass := state.Ritual.Password.Text()
-				if time.Now().After(v.UnlockAt) && pass == v.PassphraseHash {
-					// Decrypt to verify
-					cipher, err := os.ReadFile(v.CipherPath)
-					if err == nil {
-						decrypted, err := crypto.Decrypt(cipher, pass)
-						if err == nil {
-							// SUCCESS
+				
+				if time.Now().Before(v.UnlockAt) {
+					state.Ritual.ErrorMessage = "まだ刻（とき）が満ちていません。"
+					state.Ritual.IsProcessing = false
+					w.Invalidate()
+				} else {
+					// 実際に復号を試みることでパスフレーズの正当性を確認する
+					cipherData, err := os.ReadFile(v.CipherPath)
+					if err != nil {
+						state.Ritual.ErrorMessage = "封印ファイルの読み込みに失敗しました。"
+						state.Ritual.IsProcessing = false
+						w.Invalidate()
+					} else {
+						decrypted, err := crypto.Decrypt(cipherData, pass)
+						if err != nil {
+							// 復号失敗 = パスフレーズが違う
+							state.Ritual.ErrorMessage = "合言葉が違います。記憶はまだ閉ざされています。"
+							state.Ritual.IsProcessing = false
+							w.Invalidate()
+						} else {
+							// 復号成功
 							v.State = vault.StateOpened
 							v.OpenedAt = time.Now()
-							v.PreviewHint = string(decrypted)
+							v.PreviewHint = "" // 不要になったのでクリア（または一部だけ残す）
 							store.SaveVault(v)
 							
+							state.Ritual.IsProcessing = false
+							state.Ritual.IsRevealed = true
+							state.Ritual.RevealedText = string(decrypted)
+							state.Ritual.Password.SetText("") 
+							
+							// リストの同期
 							state.Vaults, _ = store.ListVaults()
 							state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
-							state.Ritual.IsProcessing = false
-							state.Ritual.Password.SetText("") // Clear
-							state.CurrentScreen = ui.ScreenVaultList
 							w.Invalidate()
 						}
 					}
-				} else {
-					// Failure or just condition not met
-					state.Ritual.IsProcessing = false
-					w.Invalidate()
 				}
 			} else {
-				// Keep invalidating to simulate animation frame
+				// アニメーション継続
 				w.Invalidate()
 			}
 		}

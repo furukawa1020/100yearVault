@@ -19,6 +19,7 @@ type ComposeState struct {
 
 	SealBtn widget.Clickable
 	BackBtn widget.Clickable
+	ErrorMessage string
 }
 
 func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dimensions {
@@ -108,7 +109,16 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 						btn.TextSize = unit.Sp(18)
 						btn.Background = ColorPrimary
 						btn.Color = ColorBackground
-						return btn.Layout(gtx)
+						dim := btn.Layout(gtx)
+						
+						if c.ErrorMessage != "" {
+							layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Caption(s.Theme, c.ErrorMessage)
+								lbl.Color = ColorDanger
+								return layout.Inset{Top: unit.Dp(40)}.Layout(gtx, lbl.Layout)
+							})
+						}
+						return dim
 					}),
 					layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
