@@ -186,6 +186,13 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			state.CurrentScreen = ui.ScreenVaultList
 			w.Invalidate()
 		}
+		if state.Ritual.AddLayerBtn.Clicked(gtx) {
+			state.Compose.AddLayerMode = true
+			state.Compose.TargetVault = state.Ritual.ActiveVault
+			state.Compose.Title.SetText("RE: " + state.Ritual.ActiveVault.Title)
+			state.CurrentScreen = ui.ScreenCompose
+			w.Invalidate()
+		}
 		if state.Ritual.UnlockBtn.Clicked(gtx) && !state.Ritual.IsProcessing && !state.Ritual.IsRevealed {
 			state.Ritual.IsProcessing = true
 			state.Ritual.ProcessingSince = time.Now()
@@ -220,12 +227,24 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 							// 復号成功
 							v.State = vault.StateOpened
 							v.OpenedAt = time.Now()
-							v.PreviewHint = "" // 不要になったのでクリア（または一部だけ残す）
+							v.PreviewHint = "" 
 							store.SaveVault(v)
 							
 							state.Ritual.IsProcessing = false
 							state.Ritual.IsRevealed = true
-							state.Ritual.RevealedText = string(decrypted)
+							
+							// 全レイヤーの復号
+							layers, _ := store.ListLayers(v.ID)
+							fullText := "--- 2026 ORIGINAL ---\n" + string(decrypted)
+							for i, l := range layers {
+								lData, _ := os.ReadFile(l.CipherPath)
+								// 同じパスフレーズを期待 (TODO: レイヤーごとのパス追跡)
+								lDec, err := crypto.Decrypt(lData, pass)
+								if err == nil {
+									fullText += fmt.Sprintf("\n\n--- LAYER %d (%s) ---\n%s", i+1, l.CreatedAt.Format("2006/01/02"), string(lDec))
+								}
+							}
+							state.Ritual.RevealedText = fullText
 							state.Ritual.Password.SetText("") 
 							
 							// リストの同期

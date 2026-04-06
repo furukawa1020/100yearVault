@@ -9,6 +9,8 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
+	"vaultapp/internal/vault"
 )
 
 type ComposeState struct {
