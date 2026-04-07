@@ -102,12 +102,6 @@ func loop(w *app.Window) error {
 				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 					// 【零の鏡】最上位レイヤーで全イベントを捕捉・管理
 					return state.NeuralSurface.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						// マイン座標捕捉用のフィルタを登録（毎フレーム実行）
-						gtx.Event(pointer.Filter{
-							Target: &state.NeuralSurface,
-							Kinds:  pointer.Move | pointer.Drag | pointer.Press,
-						})
-
 						// ロジック実行（座標の読み出しもここで行う）
 						updateLogic(gtx, state, store, w)
 

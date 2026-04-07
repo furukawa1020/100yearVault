@@ -146,7 +146,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				pSize := 1.5 * scale
 				pColor := p.Color
 				
-				if distSq < 1600 { 
+				if distSq < 2500 { 
 					pSize *= 3.5
 					pColor.A = 255
 					if len(s.Memories) > 0 {
@@ -172,9 +172,9 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								return drawRawLabel(gtx, s.Theme, "NEURAL_MIRROR_CONNECTION_ESTABLISHED", 24, ColorPrimary)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								txt := fmt.Sprintf("DEBUG_COORD: (%.0f, %.0f) | TARGET: %s", s.MousePos.X, s.MousePos.Y, "SCANNING...")
+								txt := fmt.Sprintf("DEBUG_COORD: (%.0f, %.0f) | SCAN: %v", s.MousePos.X, s.MousePos.Y, s.NeuralMemory != nil)
 								if s.NeuralMemory != nil {
-									txt = fmt.Sprintf("RESONANCE_LOCKED: %s", s.NeuralMemory.Title)
+									txt = fmt.Sprintf("RESONANCE_LOCKED: %s (SYNC_READY)", s.NeuralMemory.Title)
 								}
 								return drawRawLabel(gtx, s.Theme, txt, 12, ColorPrimaryDim)
 							}),
