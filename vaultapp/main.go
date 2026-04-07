@@ -101,9 +101,10 @@ func loop(w *app.Window) error {
 					return layout.Dimensions{Size: gtx.Constraints.Max}
 				}),
 				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-					// 【零の鏡】最上位レイヤーで全イベントを捕捉・管理
+					// 1. Absolute Manual Event Tracker (No Clickable overhead)
+					// Covers entire screen and intercepts everything.
 					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-					event.Op(gtx.Ops, &state.NeuralSurface)
+					event.Op(gtx.Ops, state)
 
 					// ロジック実行（座標の読み出しもここで行う）
 					updateLogic(gtx, state, store, w)
@@ -133,23 +134,22 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		w.Invalidate()
 	}
 
-	// イベント・フィルタリング：マウス座標の捕捉 (Interactive Singularity)
-	// 【零の鏡】全画面に対して pointer.Event を捕捉
+	// イベント・フィルタリング：マウス座標とクリックの完全手動捕捉
 	{
 		for {
 			ev, ok := gtx.Event(
 				pointer.Filter{
-					Target: &state.NeuralSurface,
-					Kinds:  pointer.Move | pointer.Press | pointer.Drag | pointer.Release,
+					Target: state,
+					Kinds:  pointer.Enter | pointer.Leave | pointer.Move | pointer.Drag | pointer.Press | pointer.Release,
 				},
 			)
 			if !ok {
 				break
 			}
 			if xev, ok := ev.(pointer.Event); ok {
-				state.MousePos = xev.Position
-				
-				// Click Event Logic when Pressed
+				if xev.Kind == pointer.Move || xev.Kind == pointer.Drag {
+					state.MousePos = xev.Position
+				}
 				if xev.Kind == pointer.Press && state.CurrentScreen == ui.ScreenVaultList {
 					if state.NeuralMemory != nil {
 						m := state.NeuralMemory
