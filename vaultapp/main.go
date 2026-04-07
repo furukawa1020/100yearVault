@@ -99,21 +99,29 @@ func loop(w *app.Window) error {
 					paint.FillShape(gtx.Ops, ui.ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
 					return layout.Dimensions{Size: gtx.Constraints.Max}
 				}),
-				// Layer 1: Operational Interface (本番)
-				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-					// Logic Handling
-					updateLogic(gtx, state, store, w)
+				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+					// 【零の鏡】最上位レイヤーで全イベントを捕捉・管理
+					return state.NeuralSurface.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						// マイン座標捕捉用のフィルタを登録（毎フレーム実行）
+						gtx.Event(pointer.Filter{
+							Target: &state.NeuralSurface,
+							Kinds:  pointer.Move | pointer.Drag | pointer.Press,
+						})
 
-					// Main Layout
-					switch state.CurrentScreen {
-					case ui.ScreenVaultList:
-						state.LayoutNeural(gtx)
-					case ui.ScreenCompose:
-						state.LayoutCompose(gtx, &state.Compose)
-					case ui.ScreenRitual:
-						state.LayoutRitual(gtx, &state.Ritual)
-					}
-					return layout.Dimensions{Size: gtx.Constraints.Max}
+						// ロジック実行（座標の読み出しもここで行う）
+						updateLogic(gtx, state, store, w)
+
+						// 描画実行
+						switch state.CurrentScreen {
+						case ui.ScreenVaultList:
+							state.LayoutNeural(gtx)
+						case ui.ScreenCompose:
+							state.LayoutCompose(gtx, &state.Compose)
+						case ui.ScreenRitual:
+							state.LayoutRitual(gtx, &state.Ritual)
+						}
+						return layout.Dimensions{Size: gtx.Constraints.Max}
+					})
 				}),
 			)
 
