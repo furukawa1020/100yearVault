@@ -8,9 +8,7 @@ import (
 	"math/rand"
 
 	"gioui.org/f32"
-	"gioui.org/io/pointer"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
@@ -30,9 +28,9 @@ const (
 )
 
 type Particle struct {
-	BaseX, BaseY, BaseZ float32 // クラスタ中心座標 (非破壊的)
-	X, Y, Z             float32 // 投影用 temporary
-	VX, VY, VZ          float32 // 速度
+	BaseX, BaseY, BaseZ float32 
+	X, Y, Z             float32 
+	VX, VY, VZ          float32 
 	Color               color.NRGBA
 }
 
@@ -41,11 +39,11 @@ type AppState struct {
 
 	// Neural Mirror Core
 	Memories     []*vault.MemoryFragment
-	NeuralMemory *vault.MemoryFragment // 同調中の記憶
+	NeuralMemory *vault.MemoryFragment 
 	SelectBtns   []widget.Clickable
 	NewVaultBtn  widget.Clickable
 
-	// Cosmic Galaxy (4096 記憶の瞬き)
+	// Cosmic Galaxy
 	Particles []Particle
 	InitOnce  bool
 	Rotation  float32
@@ -68,7 +66,6 @@ func (s *AppState) initNeuralSpace() {
 	s.Particles = make([]Particle, 4096)
 	for i := range s.Particles {
 		p := &s.Particles[i]
-		// 初期配置：宇宙の塵
 		angle1 := rand.Float64() * 2 * math.Pi
 		angle2 := rand.Float64() * math.Pi
 		distX := 150 + rand.Float64()*450
@@ -87,15 +84,12 @@ func (s *AppState) RotateNeural() {
 	s.initNeuralSpace()
 	
 	numMemories := len(s.Memories)
-	if numMemories == 0 {
-		return 
-	}
+	if numMemories == 0 { return }
 
 	for i := range s.Particles {
 		p := &s.Particles[i]
 		m := s.Memories[i%numMemories]
 		
-		// 記憶ごとの固有ハッシュによる座標決定
 		hash := float32(0)
 		for _, c := range m.ID { hash += float32(c) }
 		
@@ -106,13 +100,11 @@ func (s *AppState) RotateNeural() {
 		targetY := float32(math.Sin(angle) * dist)
 		targetZ := float32(math.Sin(angle*0.5) * 100.0)
 		
-		// 記憶の「星団」を形成
 		spread := 40.0 + math.Mod(float64(hash), 60.0)
 		p.BaseX = targetX + float32((rand.Float64()-0.5)*spread)
 		p.BaseY = targetY + float32((rand.Float64()-0.5)*spread)
 		p.BaseZ = targetZ + float32((rand.Float64()-0.5)*spread)
 		
-		// 記憶の状態（Aura）を色に反映
 		if m.Aura == vault.StateRadiant {
 			p.Color = color.NRGBA{R: 255, G: 255, B: 200, A: 255} 
 		}
@@ -124,35 +116,30 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.FrameCount++
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		// Base Layer: Absolute Interactive Background
+		// Background (No interactive handling here, main.go will do it)
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-				return layout.Dimensions{Size: gtx.Constraints.Max}
-			})
+			paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
+			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 
-		// Middle Layer: 3D Memory Galaxy
+		// 3D Galaxy Layer
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 			focalLength := float32(1000) 
-
 			s.NeuralMemory = nil 
 			
 			for i := range s.Particles {
 				p := &s.Particles[i]
-				
-				// 3D 回転演算
 				rot := float64(s.Rotation)
 				sinR, cosR := float32(math.Sin(rot)), float32(math.Cos(rot))
 				tx := p.BaseX*cosR - p.BaseZ*sinR
 				tz := p.BaseX*sinR + p.BaseZ*cosR
 				ty := p.BaseY
 				
-				// 投影
 				scale := focalLength / (focalLength + tz)
 				sx, sy := center.X+tx*scale, center.Y+ty*scale
 				if tz < -focalLength+50 { continue }
 
-				// 同調判定 (Gazing)
 				dx, dy := sx-s.MousePos.X, sy-s.MousePos.Y
 				distSq := dx*dx + dy*dy
 				pSize := 1.5 * scale
@@ -174,7 +161,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 
-		// Upper Layer: HUD (Eternal Presence)
+		// HUD Layer
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -184,7 +171,10 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								return drawRawLabel(gtx, s.Theme, "NEURAL_MIRROR_CONNECTION_ESTABLISHED", 24, ColorPrimary)
 							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								txt := fmt.Sprintf("DEBUG_COORD: (%.0f, %.0f) | MEM: %d", s.MousePos.X, s.MousePos.Y, len(s.Memories))
+								txt := fmt.Sprintf("DEBUG_COORD: (%.0f, %.0f) | TARGET: %s", s.MousePos.X, s.MousePos.Y, "SCANNING...")
+								if s.NeuralMemory != nil {
+									txt = fmt.Sprintf("RESONANCE_LOCKED: %s", s.NeuralMemory.Title)
+								}
 								return drawRawLabel(gtx, s.Theme, txt, 12, ColorPrimaryDim)
 							}),
 						)
@@ -205,13 +195,6 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								return btn.Layout(gtx)
 							}),
 							layout.Flexed(1, layout.Spacer{}.Layout),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								txt := "SCANNING_THE_MEMORY_GALAXY..."
-								if s.NeuralMemory != nil {
-									txt = "RESONANCE_DETECTED: " + s.NeuralMemory.Title
-								}
-								return drawRawLabel(gtx, s.Theme, txt, 32, ColorPrimary)
-							}),
 						)
 					})
 				}),
