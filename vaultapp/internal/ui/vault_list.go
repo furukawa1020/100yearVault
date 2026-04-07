@@ -123,18 +123,20 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.FrameCount++
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		// Base Layer: Interactive Void
+		// Base Layer: Interactive Void (Manual Control)
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			// 【零の鏡】マウス座標の取得（Move/Drag）を明示的に有効化
-			gtx.Event(pointer.Filter{
+			// 【零の鏡】全画面をクリップ領域として定義
+			rect := image.Rectangle{Max: gtx.Constraints.Max}
+			defer clip.Rect(rect).Push(gtx.Ops).Pop()
+			
+			// ポインタ・フィルタを直接登録
+			pointer.Filter{
 				Target: &s.NeuralSurface,
 				Kinds:  pointer.Move | pointer.Drag | pointer.Press,
-			})
-
-			return s.NeuralSurface.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
-				return layout.Dimensions{Size: gtx.Constraints.Max}
-			})
+			}.Add(gtx.Ops)
+			
+			paint.FillShape(gtx.Ops, ColorBackground, clip.Rect(rect).Op())
+			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 
 		// Middle Layer: 3D Memory Galaxy
