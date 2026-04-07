@@ -239,8 +239,7 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 						state.Compose.TargetMemory = nil
 						
 						// Refresh List
-						var err error
-						state.Memories, err = store.ListMemories()
+						state.Memories, _ = store.ListMemories()
 						state.SelectBtns = make([]widget.Clickable, len(state.Memories))
 						state.CurrentScreen = ui.ScreenVaultList
 						w.Invalidate()
