@@ -284,7 +284,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				sx := center.X + (tx+p.X)*scale
 				sy := center.Y + (ty+p.Y)*scale
 
-				pSize := 1.5 * scale * math.Max(1.0, float64(p.Mass)*0.4)
+				pSize := 1.5 * scale * float32(math.Max(1.0, float64(p.Mass)*0.4))
 				pColor := p.Color
 				
 				if screenDistSq < 2500 { 
