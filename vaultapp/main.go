@@ -275,7 +275,7 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		}
 
 		if state.Ritual.IsProcessing {
-			if time.Since(state.Ritual.ProcessingSince) > 1.5*time.Second {
+			if time.Since(state.Ritual.ProcessingSince) > (3*time.Second)/2 {
 				m := state.Ritual.ActiveMemory
 				pass := state.Ritual.Password.Text()
 				
