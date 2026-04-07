@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -101,21 +102,22 @@ func loop(w *app.Window) error {
 				}),
 				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 					// 【零の鏡】最上位レイヤーで全イベントを捕捉・管理
-					return state.NeuralSurface.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						// ロジック実行（座標の読み出しもここで行う）
-						updateLogic(gtx, state, store, w)
+					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+					event.Op(gtx.Ops, &state.NeuralSurface)
 
-						// 描画実行
-						switch state.CurrentScreen {
-						case ui.ScreenVaultList:
-							state.LayoutNeural(gtx)
-						case ui.ScreenCompose:
-							state.LayoutCompose(gtx, &state.Compose)
-						case ui.ScreenRitual:
-							state.LayoutRitual(gtx, &state.Ritual)
-						}
-						return layout.Dimensions{Size: gtx.Constraints.Max}
-					})
+					// ロジック実行（座標の読み出しもここで行う）
+					updateLogic(gtx, state, store, w)
+
+					// 描画実行
+					switch state.CurrentScreen {
+					case ui.ScreenVaultList:
+						state.LayoutNeural(gtx)
+					case ui.ScreenCompose:
+						state.LayoutCompose(gtx, &state.Compose)
+					case ui.ScreenRitual:
+						state.LayoutRitual(gtx, &state.Ritual)
+					}
+					return layout.Dimensions{Size: gtx.Constraints.Max}
 				}),
 			)
 
@@ -132,14 +134,13 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 	}
 
 	// イベント・フィルタリング：マウス座標の捕捉 (Interactive Singularity)
-	// 【零の鏡】全画面のクリップ領域を確保した上でマウスイベントを捕捉・登録
+	// 【零の鏡】全画面に対して pointer.Event を捕捉
 	{
-		stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 		for {
 			ev, ok := gtx.Event(
 				pointer.Filter{
 					Target: &state.NeuralSurface,
-					Kinds:  pointer.Move | pointer.Press | pointer.Drag,
+					Kinds:  pointer.Move | pointer.Press | pointer.Drag | pointer.Release,
 				},
 			)
 			if !ok {
@@ -147,14 +148,9 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			}
 			if xev, ok := ev.(pointer.Event); ok {
 				state.MousePos = xev.Position
-			}
-		}
-		stack.Pop()
-	}
-
-			// Neural Void Logic (Singularity v4.0)
-			if state.CurrentScreen == ui.ScreenVaultList {
-				if state.NeuralSurface.Clicked(gtx) {
+				
+				// Click Event Logic when Pressed
+				if xev.Kind == pointer.Press && state.CurrentScreen == ui.ScreenVaultList {
 					if state.NeuralMemory != nil {
 						m := state.NeuralMemory
 						// 記憶への同調
@@ -164,6 +160,8 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 					}
 				}
 			}
+		}
+	}
 
 	// Compose Screen Logic
 	if state.CurrentScreen == ui.ScreenCompose {
