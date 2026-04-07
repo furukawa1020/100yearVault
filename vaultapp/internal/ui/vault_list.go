@@ -211,41 +211,16 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 				return layout.Dimensions{Size: gtx.Constraints.Max}
 			}),
-			
-			// 2. システム情報オーバーレイ (Guaranteed Monospace)
-			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(unit.Dp(60)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							msg := fmt.Sprintf("NEURAL_SYNC_V8: 0x%04X | NODE_HEALTH: 100%% | FRAGMENTS: 4096", s.FrameCount%0xFFFF)
-							// material をバイパスし直接 Consolas で描画
-							return drawRawLabel(gtx, s.Theme, msg, 12, ColorPrimaryDim)
-						}),
-						layout.Rigid(layout.Spacer{Height: unit.Dp(24)}.Layout),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							// 微妙な座標揺れ (Glitch)
-							offset := image.Pt(int(rand.NormFloat64()*1.2), int(rand.NormFloat64()*1.2))
-							stack := op.Offset(offset).Push(gtx.Ops)
-							dims := drawRawLabel(gtx, s.Theme, s.NeuralText, 38, ColorText)
-							stack.Pop()
-							return dims
-						}),
-					)
-				})
-			}),
+			})
+		}),
 
-			// 3. インジェクション・ゲート
-			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-				return layout.S.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Inset{Bottom: unit.Dp(30)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						btn := material.Button(s.Theme, &s.NewVaultBtn, "[ INITIATE_NEURAL_UPLINK ]")
-						btn.Background = color.NRGBA{A: 0}
-						btn.Color = ColorSecondary
-						btn.TextSize = unit.Sp(24)
-						return btn.Layout(gtx)
-					})
-				})
-			}),
+		// Layer: 3D Galaxy
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
+			focalLength := float32(1000) 
+
+			s.NeuralMemory = nil // 判定リセット
+			
 		)
 	})
 }
