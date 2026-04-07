@@ -129,21 +129,26 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		w.Invalidate()
 	}
 
-			// イベント・フィルタリング：マウス座標の捕捉 (Interactive Singularity)
-			for {
-				ev, ok := gtx.Event(
-					pointer.Filter{
-						Target: &state.NeuralSurface,
-						Kinds:  pointer.Move | pointer.Press | pointer.Drag,
-					},
-				)
-				if !ok {
-					break
-				}
-				if xev, ok := ev.(pointer.Event); ok {
-					state.MousePos = xev.Position
-				}
+	// イベント・フィルタリング：マウス座標の捕捉 (Interactive Singularity)
+	// 【零の鏡】全画面のクリップ領域を確保した上でマウスイベントを捕捉・登録
+	{
+		stack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+		for {
+			ev, ok := gtx.Event(
+				pointer.Filter{
+					Target: &state.NeuralSurface,
+					Kinds:  pointer.Move | pointer.Press | pointer.Drag,
+				},
+			)
+			if !ok {
+				break
 			}
+			if xev, ok := ev.(pointer.Event); ok {
+				state.MousePos = xev.Position
+			}
+		}
+		stack.Pop()
+	}
 
 			// Neural Void Logic (Singularity v4.0)
 			if state.CurrentScreen == ui.ScreenVaultList {
