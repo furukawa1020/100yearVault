@@ -48,7 +48,7 @@ func loop(w *app.Window) error {
 	defer store.Close()
 
 	// Initial Load
-	vaults, _ := store.ListVaults()
+	memories, _ := store.ListMemories()
 
 	// UI State
 	// UI State (Absolute Pathing)
@@ -56,8 +56,8 @@ func loop(w *app.Window) error {
 	th := ui.NewVaultTheme(fontPath)
 	state := &ui.AppState{
 		Theme:      th,
-		Vaults:     vaults,
-		SelectBtns: make([]widget.Clickable, len(vaults)),
+		Memories:   memories,
+		SelectBtns: make([]widget.Clickable, len(memories)),
 	}
 	state.Compose.UnlockDays.SetText("36500")
 
@@ -149,14 +149,12 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			// Neural Void Logic (Singularity v4.0)
 			if state.CurrentScreen == ui.ScreenVaultList {
 				if state.NeuralSurface.Clicked(gtx) {
-					if state.NeuralVault != nil {
-						v := state.NeuralVault
-						// 刻が満ちているか、既に開封済みの場合は「システム・アクセス」へ
-						if v.State == vault.StateOpened || time.Now().After(v.UnlockAt) {
-							state.Ritual.ActiveVault = v
-							state.CurrentScreen = ui.ScreenRitual
-							w.Invalidate()
-						}
+					if state.NeuralMemory != nil {
+						m := state.NeuralMemory
+						// 記憶への同調
+						state.Ritual.ActiveMemory = m
+						state.CurrentScreen = ui.ScreenRitual
+						w.Invalidate()
 					}
 				}
 			}
@@ -173,23 +171,16 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			title := state.Compose.Title.Text()
 			body := state.Compose.Body.Text()
 			pass := state.Compose.Passphrase.Text()
-			daysInput := state.Compose.UnlockDays.Text()
-
+			
 			if title == "" && !state.Compose.AddLayerMode {
-				state.Compose.ErrorMessage = "タイトルを入力してください。"
-				w.Invalidate()
-			} else if pass == "" {
-				state.Compose.ErrorMessage = "封印のための合言葉（パスフレーズ）が必要です。"
-				w.Invalidate()
-			} else if len(pass) < 4 {
-				state.Compose.ErrorMessage = "合言葉は少なくとも4文字以上必要です。"
+				state.Compose.ErrorMessage = "記憶の題名が必要です。"
 				w.Invalidate()
 			} else {
-				vid := ""
-				if state.Compose.AddLayerMode && state.Compose.TargetVault != nil {
-					vid = state.Compose.TargetVault.ID
+				mid := ""
+				if state.Compose.AddLayerMode && state.Compose.TargetMemory != nil {
+					mid = state.Compose.TargetMemory.ID
 				} else {
-					vid = fmt.Sprintf("v%d", time.Now().Unix())
+					mid = fmt.Sprintf("m%d", time.Now().Unix())
 				}
 
 				layerID := fmt.Sprintf("l%d", time.Now().UnixNano())
@@ -198,56 +189,43 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 				// Ensure vaults directory exists
 				os.MkdirAll("vaults", 0700)
 
-				// Encrypt
+				// Encrypt (深層としての保護)
 				ciphertext, err := crypto.Encrypt([]byte(body), pass)
 				if err != nil {
-					state.Compose.ErrorMessage = "封印に失敗しました: " + err.Error()
+					state.Compose.ErrorMessage = "共鳴の失敗: " + err.Error()
 					w.Invalidate()
 				} else {
 					err = os.WriteFile(cipherPath, ciphertext, 0600)
 					if err != nil {
-						state.Compose.ErrorMessage = "ファイルの保存に失敗しました。"
+						state.Compose.ErrorMessage = "時層の安定化に失敗しました。"
 						w.Invalidate()
 					} else {
-						if state.Compose.AddLayerMode && state.Compose.TargetVault != nil {
+						if state.Compose.AddLayerMode && state.Compose.TargetMemory != nil {
 							l := &vault.Layer{
 								ID:         layerID,
-								ParentID:   vid,
+								ParentID:   mid,
 								CipherPath: cipherPath,
 								CreatedAt:  time.Now(),
 							}
 							if err := store.SaveLayer(l); err != nil {
-								log.Printf("STP LAYER SAVE ERROR: %v", err)
 								state.Compose.ErrorMessage = "地層の保存に失敗しました。"
 								w.Invalidate()
 								return
 							}
 						} else {
-							// 新規残響の作成 (残響の刻印)
-							days, _ := strconv.ParseFloat(daysInput, 64)
-							if days <= 0 {
-								days = 36500 
-							}
-
-							// 2126年 EEP: 思考の漂流 (意志の残響)
-							maxSeconds := days * 24 * 60 * 60
-							randomSeconds := float64(time.Now().UnixNano()%int64(maxSeconds))
-							
-							unlockAt := time.Now().Add(time.Duration(randomSeconds * float64(time.Second)))
-
-							v := &vault.Vault{
-								ID:                vid,
+							// 記憶の断片を宇宙に放流
+							m := &vault.MemoryFragment{
+								ID:                mid,
 								Title:             title,
-								State:             vault.StateSealed,
+								Aura:              vault.StatePulse,
 								CreatedAt:         time.Now(),
-								UnlockAt:          unlockAt,
+								Luminosity:        1.0,
 								CipherPath:        cipherPath,
-								RequirePassphrase: true,
+								RequirePassphrase: pass != "",
 								PreviewHint:       body, 
 							}
-							if err := store.SaveVault(v); err != nil {
-								log.Printf("QSP VAULT SAVE ERROR: %v", err)
-								state.Compose.ErrorMessage = "時空への放流に失敗しました。"
+							if err := store.SaveMemory(m); err != nil {
+								state.Compose.ErrorMessage = "記憶の放流に失敗しました。"
 								w.Invalidate()
 								return
 							}
@@ -259,15 +237,12 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 						state.Compose.Passphrase.SetText("")
 						state.Compose.ErrorMessage = ""
 						state.Compose.AddLayerMode = false
-						state.Compose.TargetVault = nil
+						state.Compose.TargetMemory = nil
 						
 						// Refresh List
 						var err error
-						state.Vaults, err = store.ListVaults()
-						if err != nil {
-							log.Printf("LIST REFRESH ERROR: %v", err)
-						}
-						state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
+						state.Memories, err = store.ListMemories()
+						state.SelectBtns = make([]widget.Clickable, len(state.Memories))
 						state.CurrentScreen = ui.ScreenVaultList
 						w.Invalidate()
 					}
@@ -276,7 +251,7 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		}
 	}
 
-	// Ritual Screen Logic
+	// Ritual Screen Logic (Memory Sync)
 	if state.CurrentScreen == ui.ScreenRitual {
 		if state.Ritual.CancelBtn.Clicked(gtx) {
 			state.Ritual.IsProcessing = false
@@ -287,8 +262,8 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		}
 		if state.Ritual.AddLayerBtn.Clicked(gtx) {
 			state.Compose.AddLayerMode = true
-			state.Compose.TargetVault = state.Ritual.ActiveVault
-			state.Compose.Title.SetText("RE: " + state.Ritual.ActiveVault.Title)
+			state.Compose.TargetMemory = state.Ritual.ActiveMemory
+			state.Compose.Title.SetText("Reflection: " + state.Ritual.ActiveMemory.Title)
 			state.CurrentScreen = ui.ScreenCompose
 			w.Invalidate()
 		}
@@ -300,64 +275,51 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 		}
 
 		if state.Ritual.IsProcessing {
-			if time.Since(state.Ritual.ProcessingSince) > 2*time.Second {
-				v := state.Ritual.ActiveVault
+			if time.Since(state.Ritual.ProcessingSince) > 1.5*time.Second {
+				m := state.Ritual.ActiveMemory
 				pass := state.Ritual.Password.Text()
 				
-				if time.Now().Before(v.UnlockAt) {
-					state.Ritual.ErrorMessage = "まだ刻（とき）が満ちていません。"
+				// 記憶へのアクセス
+				cipherData, err := os.ReadFile(m.CipherPath)
+				if err != nil {
+					state.Ritual.ErrorMessage = "記憶の断片を読み取れません。"
 					state.Ritual.IsProcessing = false
 					w.Invalidate()
 				} else {
-					// 実際に復号を試みることでパスフレーズの正当性を確認する
-					cipherData, err := os.ReadFile(v.CipherPath)
+					decrypted, err := crypto.Decrypt(cipherData, pass)
 					if err != nil {
-						state.Ritual.ErrorMessage = "封印ファイルの読み込みに失敗しました。"
+						state.Ritual.ErrorMessage = "想いが一致しません（合言葉を確認してください）。"
 						state.Ritual.IsProcessing = false
 						w.Invalidate()
 					} else {
-						decrypted, err := crypto.Decrypt(cipherData, pass)
-						if err != nil {
-							// 復号失敗 = パスフレーズが違う
-							state.Ritual.ErrorMessage = "合言葉が違います。記憶はまだ閉ざされています。"
-							state.Ritual.IsProcessing = false
-							w.Invalidate()
-						} else {
-							// 復号成功
-							v.State = vault.StateOpened
-							v.OpenedAt = time.Now()
-							v.PreviewHint = "" 
-							store.SaveVault(v)
-							
-							state.Ritual.IsProcessing = false
-							state.Ritual.IsRevealed = true
-							
-							// 全レイヤーの復号
-							layers, _ := store.ListLayers(v.ID)
-							fullText := "--- 2026 ORIGINAL ---\n" + string(decrypted)
-							for i, l := range layers {
-								lData, _ := os.ReadFile(l.CipherPath)
-								// 同じパスフレーズを期待 (TODO: レイヤーごとのパス追跡)
-								lDec, err := crypto.Decrypt(lData, pass)
-								if err == nil {
-									fullText += fmt.Sprintf("\n\n--- LAYER %d (%s) ---\n%s", i+1, l.CreatedAt.Format("2006/01/02"), string(lDec))
-								}
+						// 同調成功
+						m.Aura = vault.StateRadiant
+						m.Luminosity = 1.0
+						store.SaveMemory(m)
+						
+						state.Ritual.IsProcessing = false
+						state.Ritual.IsRevealed = true
+						
+						// 地層の読み込み
+						layers, _ := store.ListLayers(m.ID)
+						fullText := "--- [ORIGIN] ---\n" + string(decrypted)
+						for i, l := range layers {
+							lData, _ := os.ReadFile(l.CipherPath)
+							lDec, err := crypto.Decrypt(lData, pass)
+							if err == nil {
+								fullText += fmt.Sprintf("\n\n--- [LAYER %d (%s)] ---\n%s", i+1, l.CreatedAt.Format("2006/01/02"), string(lDec))
 							}
-							state.Ritual.RevealedText = fullText
-							state.Ritual.Password.SetText("") 
-							
-							// 2126 RESONANCE: Update state and rotate
-							state.RotateNeural()
-
-							// リストの同期
-							state.Vaults, _ = store.ListVaults()
-							state.SelectBtns = make([]widget.Clickable, len(state.Vaults))
-							w.Invalidate()
 						}
+						state.Ritual.RevealedText = fullText
+						state.Ritual.Password.SetText("") 
+						
+						state.RotateNeural()
+						state.Memories, _ = store.ListMemories()
+						state.SelectBtns = make([]widget.Clickable, len(state.Memories))
+						w.Invalidate()
 					}
 				}
 			} else {
-				// アニメーション継続
 				w.Invalidate()
 			}
 		}

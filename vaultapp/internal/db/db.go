@@ -17,38 +17,28 @@ func NewStore(dbPath string) (*Store, error) {
 	}
 	
 	schema := `
-	CREATE TABLE IF NOT EXISTS vaults (
+	CREATE TABLE IF NOT EXISTS memories (
 		id TEXT PRIMARY KEY,
 		title TEXT,
-		state TEXT,
+		aura TEXT,
 		created_at DATETIME,
-		sealed_at DATETIME,
-		unlock_at DATETIME,
-		opened_at DATETIME,
-		deleted_at DATETIME,
-		content_type TEXT,
+		luminosity REAL,
 		cipher_path TEXT,
 		preview_hint TEXT,
 		require_passphrase BOOLEAN,
-		passphrase_hash TEXT,
-		allow_reopen BOOLEAN,
-		destroy_on_open BOOLEAN,
 		layer_count INTEGER DEFAULT 0
 	);
-	CREATE TABLE IF NOT EXISTS vault_layers (
+	CREATE TABLE IF NOT EXISTS memory_layers (
 		id TEXT PRIMARY KEY,
 		parent_id TEXT,
 		cipher_path TEXT,
 		created_at DATETIME,
-		FOREIGN KEY(parent_id) REFERENCES vaults(id)
+		FOREIGN KEY(parent_id) REFERENCES memories(id)
 	);`
 	
 	if _, err := db.Exec(schema); err != nil {
 		return nil, err
 	}
-
-	// 2126年 移行措置 (Migration): layer_count がない場合は追加
-	_, _ = db.Exec("ALTER TABLE vaults ADD COLUMN layer_count INTEGER DEFAULT 0")
 
 	return &Store{db: db}, nil
 }
@@ -57,34 +47,32 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-func (s *Store) SaveVault(v *vault.Vault) error {
-	query := `INSERT OR REPLACE INTO vaults (
-		id, title, state, created_at, sealed_at, unlock_at, opened_at, deleted_at,
-		content_type, cipher_path, preview_hint, require_passphrase, passphrase_hash,
-		allow_reopen, destroy_on_open, layer_count
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+func (s *Store) SaveMemory(m *vault.MemoryFragment) error {
+	query := `INSERT OR REPLACE INTO memories (
+		id, title, aura, created_at, luminosity,
+		cipher_path, preview_hint, require_passphrase, layer_count
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	
 	_, err := s.db.Exec(query,
-		v.ID, v.Title, string(v.State), v.CreatedAt, v.SealedAt, v.UnlockAt, v.OpenedAt, v.DeletedAt,
-		v.ContentType, v.CipherPath, v.PreviewHint, v.RequirePassphrase, v.PassphraseHash,
-		v.AllowReopen, v.DestroyOnOpen, v.LayerCount,
+		m.ID, m.Title, string(m.Aura), m.CreatedAt, m.Luminosity,
+		m.CipherPath, m.PreviewHint, m.RequirePassphrase, m.LayerCount,
 	)
 	return err
 }
 
 func (s *Store) SaveLayer(l *vault.Layer) error {
-	query := `INSERT OR REPLACE INTO vault_layers (id, parent_id, cipher_path, created_at) VALUES (?, ?, ?, ?)`
+	query := `INSERT OR REPLACE INTO memory_layers (id, parent_id, cipher_path, created_at) VALUES (?, ?, ?, ?)`
 	_, err := s.db.Exec(query, l.ID, l.ParentID, l.CipherPath, l.CreatedAt)
 	if err != nil {
 		return err
 	}
-	// VaultのLayerCountをインクリメント
-	_, err = s.db.Exec("UPDATE vaults SET layer_count = layer_count + 1 WHERE id = ?", l.ParentID)
+	// MemoryのLayerCountをインクリメント
+	_, err = s.db.Exec("UPDATE memories SET layer_count = layer_count + 1 WHERE id = ?", l.ParentID)
 	return err
 }
 
 func (s *Store) ListLayers(parentID string) ([]*vault.Layer, error) {
-	rows, err := s.db.Query("SELECT id, parent_id, cipher_path, created_at FROM vault_layers WHERE parent_id = ? ORDER BY created_at ASC", parentID)
+	rows, err := s.db.Query("SELECT id, parent_id, cipher_path, created_at FROM memory_layers WHERE parent_id = ? ORDER BY created_at ASC", parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -101,27 +89,26 @@ func (s *Store) ListLayers(parentID string) ([]*vault.Layer, error) {
 	return layers, nil
 }
 
-func (s *Store) ListVaults() ([]*vault.Vault, error) {
-	rows, err := s.db.Query("SELECT * FROM vaults WHERE state != 'Destroyed' ORDER BY created_at DESC")
+func (s *Store) ListMemories() ([]*vault.MemoryFragment, error) {
+	rows, err := s.db.Query("SELECT * FROM memories ORDER BY created_at DESC")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	
-	var res []*vault.Vault
+	var res []*vault.MemoryFragment
 	for rows.Next() {
-		v := &vault.Vault{}
-		var stateStr string
+		m := &vault.MemoryFragment{}
+		var auraStr string
 		err := rows.Scan(
-			&v.ID, &v.Title, &stateStr, &v.CreatedAt, &v.SealedAt, &v.UnlockAt, &v.OpenedAt, &v.DeletedAt,
-			&v.ContentType, &v.CipherPath, &v.PreviewHint, &v.RequirePassphrase, &v.PassphraseHash,
-			&v.AllowReopen, &v.DestroyOnOpen, &v.LayerCount,
+			&m.ID, &m.Title, &auraStr, &m.CreatedAt, &m.Luminosity,
+			&m.CipherPath, &m.PreviewHint, &m.RequirePassphrase, &m.LayerCount,
 		)
 		if err != nil {
 			return nil, err
 		}
-		v.State = vault.State(stateStr)
-		res = append(res, v)
+		m.Aura = vault.ReminiscenceState(auraStr)
+		res = append(res, m)
 	}
 	return res, nil
 }

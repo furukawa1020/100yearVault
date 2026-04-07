@@ -23,19 +23,20 @@ type ComposeState struct {
 	BackBtn widget.Clickable
 	ErrorMessage string
 
-	// STP v2126 用拡張修飾
+	// Neural Mirror Uplink 拡張
 	AddLayerMode bool
-	TargetVault  *vault.Vault
+	TargetMemory *vault.MemoryFragment
 }
 
 func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dimensions {
-	fillBackground(gtx, ColorBackground)
+	// 【零の鏡】各スクリーンレベルでも物理的漆黒クリアを再実行
+	paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		// ヘッダー（戻るボタンを巨大化）
+		// ヘッダー
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(s.Theme, &c.BackBtn, "← RETURN_TO_VOID")
+				btn := material.Button(s.Theme, &c.BackBtn, "← CLOSE_LETTER_AND_BACK")
 				btn.Background = ColorSurfaceHigh
 				btn.Color = ColorPrimary
 				btn.TextSize = unit.Sp(32)
@@ -44,37 +45,48 @@ func (s *AppState) LayoutCompose(gtx layout.Context, c *ComposeState) layout.Dim
 			})
 		}),
 		
-		// 入力エリア（スクロール可能な巨大フィールド）
+		// 入力エリア
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(40)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					// タイトル（宛先）
+					// 宛先
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return s.labeledField(gtx, "IDENTIFY_TARGET_UID", func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(s.Theme, &c.Title, "UID_UNKNOWN...")
+						return s.labeledField(gtx, "DEAR_MY_FUTURE_SELF", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Title, "未来の私へ...")
 							ed.TextSize = unit.Sp(48)
 							ed.Color = ColorPrimary
 							return ed.Layout(gtx)
 						})
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(60)}.Layout),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
 					
 					// 本文
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return s.labeledField(gtx, "UPLINK_DATA_FRAGMENT", func(gtx layout.Context) layout.Dimensions {
-							ed := material.Editor(s.Theme, &c.Body, "INPUT_STREAM_PENDING...")
-							ed.TextSize = unit.Sp(56)
+						return s.labeledField(gtx, "WORDS_TO_BE_STARS", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Body, "今の想いを綴ってください（星となって瞬き続けます）...")
+							ed.TextSize = unit.Sp(42) // 読みやすさ重視
 							ed.Color = ColorText
 							return ed.Layout(gtx)
 						})
 					}),
-					layout.Rigid(layout.Spacer{Height: unit.Dp(80)}.Layout),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(40)}.Layout),
 
-					// 封印ボタン（画面最下部に巨大配置）
+					// 合言葉
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						label := "INITIATE_STOWAGE_SEQUENCE"
+						return s.labeledField(gtx, "RESONANCE_KEY_OPTIONAL", func(gtx layout.Context) layout.Dimensions {
+							ed := material.Editor(s.Theme, &c.Passphrase, "合言葉...")
+							ed.TextSize = unit.Sp(32)
+							ed.Color = ColorPrimaryDim
+							return ed.Layout(gtx)
+						})
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(60)}.Layout),
+
+					// 放流ボタン
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						label := "RELEASE_MEMORY_TO_COSMOS"
 						if c.AddLayerMode {
-							label = "SYNCHRONIZE_FRAGMENT_LAYERS"
+							label = "SYNCHRONIZE_NEW_REFLECTION"
 						}
 						btn := material.Button(s.Theme, &c.SealBtn, label)
 						btn.Background = ColorPrimary
@@ -107,11 +119,11 @@ func (s *AppState) labeledField(gtx layout.Context, label string, field func(lay
 			lbl.TextSize = unit.Sp(32)
 			return lbl.Layout(gtx)
 		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(20)}.Layout),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(10)}.Layout),
 		layout.Rigid(field),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(4))
+			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(2)) // 繊細な境界線
 			paint.FillShape(gtx.Ops, ColorPrimaryDim, clip.Rect(image.Rectangle{Max: size}).Op())
 			return layout.Dimensions{Size: size}
 		}),
