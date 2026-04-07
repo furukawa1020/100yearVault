@@ -17,7 +17,7 @@ import (
 )
 
 type RitualState struct {
-	ActiveVault     *vault.Vault
+	ActiveMemory    *vault.MemoryFragment
 	Password        widget.Editor
 	UnlockBtn       widget.Clickable
 	CancelBtn       widget.Clickable
@@ -30,9 +30,10 @@ type RitualState struct {
 }
 
 func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimensions {
-	fillBackground(gtx, ColorBackground)
+	// 【零の鏡】各スクリーンレベルでも物理的漆黒クリアを再実行
+	paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
-	if r.ActiveVault == nil {
+	if r.ActiveMemory == nil {
 		return layout.Dimensions{}
 	}
 
@@ -47,7 +48,7 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 		// 巨大な戻るエリア
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(32)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				btn := material.Button(s.Theme, &r.CancelBtn, "← DISCONNECT_STREAM")
+				btn := material.Button(s.Theme, &r.CancelBtn, "← DIFFUSE_AND_BACK")
 				btn.Background = ColorSurfaceHigh
 				btn.Color = ColorPrimary
 				btn.TextSize = unit.Sp(32)
@@ -62,7 +63,7 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 				return layout.UniformInset(unit.Dp(60)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							lbl := material.H4(s.Theme, r.ActiveVault.Title)
+							lbl := material.H4(s.Theme, r.ActiveMemory.Title)
 							lbl.Color = ColorPrimary
 							lbl.TextSize = unit.Sp(64)
 							lbl.Alignment = text.Middle
@@ -72,7 +73,7 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 						
 						// パスフレーズ入力（巨大化）
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return s.labeledField(gtx, "INPUT_ACCESS_PASSPHRASE", func(gtx layout.Context) layout.Dimensions {
+							return s.labeledField(gtx, "SYNCHRONIZATION_PASSPHRASE", func(gtx layout.Context) layout.Dimensions {
 								ed := material.Editor(s.Theme, &r.Password, "...")
 								ed.TextSize = unit.Sp(64)
 								ed.Color = ColorPrimary
@@ -81,9 +82,9 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 						}),
 						layout.Rigid(layout.Spacer{Height: unit.Dp(80)}.Layout),
 
-						// 巨大な解凍ボタン
+						// 巨大な同調ボタン
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							btn := material.Button(s.Theme, &r.UnlockBtn, "INITIALIZE_DECRYPTION")
+							btn := material.Button(s.Theme, &r.UnlockBtn, "RESONATE_WITH_PAST_SELF")
 							btn.Background = ColorPrimary
 							btn.Color = ColorBackground
 							btn.TextSize = unit.Sp(56)
@@ -109,12 +110,12 @@ func (s *AppState) LayoutRitual(gtx layout.Context, r *RitualState) layout.Dimen
 // 処理中（自動的に進行）
 func (s *AppState) layoutProcessing(gtx layout.Context, r *RitualState) layout.Dimensions {
 	elapsed := time.Since(r.ProcessingSince).Seconds()
-	progress := math.Min(elapsed/2.0, 1.0)
+	progress := math.Min(elapsed/1.5, 1.0)
 
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				lbl := material.H2(s.Theme, "SYNCHRONIZING_NEURAL_PULSE...")
+				lbl := material.H2(s.Theme, "TUNING_NEURAL_FREQUENCY...")
 				lbl.Color = ColorPrimary
 				lbl.TextSize = unit.Sp(60)
 				return lbl.Layout(gtx)
@@ -136,13 +137,13 @@ func (s *AppState) layoutProcessing(gtx layout.Context, r *RitualState) layout.D
 	})
 }
 
-// 開封後：巨大表示
+// 同調後：巨大表示
 func (s *AppState) layoutRevealed(gtx layout.Context, r *RitualState) layout.Dimensions {
 	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(unit.Dp(60)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					lbl := material.H4(s.Theme, r.ActiveVault.Title)
+					lbl := material.H4(s.Theme, r.ActiveMemory.Title)
 					lbl.Color = ColorPrimaryDim
 					lbl.TextSize = unit.Sp(48)
 					return lbl.Layout(gtx)
@@ -157,7 +158,7 @@ func (s *AppState) layoutRevealed(gtx layout.Context, r *RitualState) layout.Dim
 				}),
 				layout.Rigid(layout.Spacer{Height: unit.Dp(100)}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					btn := material.Button(s.Theme, &r.CancelBtn, "RETURN_TO_VOID")
+					btn := material.Button(s.Theme, &r.CancelBtn, "DIFFUSE_AND_FINISH")
 					btn.Background = ColorSurfaceHigh
 					btn.Color = ColorPrimary
 					btn.TextSize = unit.Sp(40)

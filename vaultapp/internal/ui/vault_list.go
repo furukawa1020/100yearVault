@@ -38,57 +38,51 @@ type Particle struct {
 }
 
 type AppState struct {
-	Theme         *material.Theme
-	Vaults        []*vault.Vault
-	CurrentScreen Screen
+	Theme *material.Theme
 
-	// Sub-states
-	Compose ComposeState
-	Ritual  RitualState
+	// Neural Mirror Core
+	Memories     []*vault.MemoryFragment
+	NeuralMemory *vault.MemoryFragment // 現在同調している記憶
+	SelectBtns   []widget.Clickable
+	NewVaultBtn  widget.Clickable
 
-	// Widgets
-	NewVaultBtn widget.Clickable
-	VaultList   layout.List
-	SelectBtns  []widget.Clickable
+	// Cosmic Particles (4096 記憶の断片)
+	Particles []Particle
+	InitOnce  bool
+	Rotation  float32
 
-	// 電脳領域 (NeuralSingularity v4.0)
-	NeuralVault   *vault.Vault
-	NeuralText    string
+	// Interaction
+	MousePos      f32.Point
 	NeuralSurface widget.Clickable
-	
-	// アニメーション・物理演算用計測値
-	Rotation     float32
-	PulsePhase   float32
-	Particles    []Particle
-	InitOnce     bool
-	FrameCount   int
-	MousePos     f32.Point
+	FrameCount    int
+
+	// Screen Navigation
+	CurrentScreen Screen
+	Compose       ComposeState
+	Ritual        RitualState
 }
 
 func (s *AppState) initNeuralSpace() {
 	if s.InitOnce {
 		return
 	}
-	s.Particles = make([]Particle, 4096) // 4096 粒子 (極限密度)
+	s.Particles = make([]Particle, 4096)
+
 	for i := range s.Particles {
-		// 3D マハラノビス空間：歪んだ楕円体状に分布
+		p := &s.Particles[i]
+
+		// 3D マハラノビス空間：記憶の海を形成
 		angle1 := rand.Float64() * 2 * math.Pi
 		angle2 := rand.Float64() * math.Pi
-		// 軸ごとに異なる分散（共分散行列のイメージ）
 		distX := 150 + rand.Float64()*450
 		distY := 100 + rand.Float64()*300
 		distZ := 200 + rand.Float64()*600
-		
-		s.Particles[i] = Particle{
-			BaseX: float32(math.Sin(angle2)*math.Cos(angle1) * distX),
-			BaseY: float32(math.Sin(angle2)*math.Sin(angle1) * distY),
-			BaseZ: float32(math.Cos(angle2) * distZ),
-			VX:    float32(rand.NormFloat64() * 0.1),
-			VY:    float32(rand.NormFloat64() * 0.1),
-			VZ:    float32(rand.NormFloat64() * 0.1),
-			Life:  rand.Float32(),
-			Color: ColorDataFragments[rand.Intn(len(ColorDataFragments))],
-		}
+
+		p.BaseX = float32(math.Sin(angle2)*math.Cos(angle1) * distX)
+		p.BaseY = float32(math.Sin(angle2)*math.Sin(angle1) * distY)
+		p.BaseZ = float32(math.Cos(angle2) * distZ)
+
+		p.Color = ColorDataFragments[rand.Intn(len(ColorDataFragments))]
 	}
 	s.InitOnce = true
 }
