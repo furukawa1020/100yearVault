@@ -122,19 +122,18 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
 
+	// 【零の鏡】最前面で全画面のマウス座標を捕捉 (HUD による遮断を回避)
+	hitStack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+	gtx.Event(pointer.Filter{
+		Target: &s.NeuralSurface,
+		Kinds:  pointer.Move | pointer.Drag | pointer.Press,
+	})
+	hitStack.Pop()
+
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
 		// Background
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			// 【零の鏡】マウス座標の捕捉には、クリップ領域とフィルタの対が必要
-			rect := image.Rectangle{Max: gtx.Constraints.Max}
-			stack := clip.Rect(rect).Push(gtx.Ops)
-			gtx.Event(pointer.Filter{
-				Target: &s.NeuralSurface,
-				Kinds:  pointer.Move | pointer.Drag | pointer.Press,
-			})
-			stack.Pop()
-
-			paint.FillShape(gtx.Ops, ColorBackground, clip.Rect(rect).Op())
+			paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 
