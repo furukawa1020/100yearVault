@@ -131,10 +131,19 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	hitStack.Pop()
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		// Background
+		// Base Layer: Absolute Interactive Background
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
-			return layout.Dimensions{Size: gtx.Constraints.Max}
+			// 【零の鏡】マウス移動とクリックの両方を捕捉
+			return s.NeuralSurface.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				// 1. マウス座標捕捉用のフィルタを登録
+				gtx.Event(pointer.Filter{
+					Target: &s.NeuralSurface,
+					Kinds:  pointer.Move | pointer.Drag | pointer.Press,
+				})
+				// 2. 背景塗りつぶし
+				paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
+				return layout.Dimensions{Size: gtx.Constraints.Max}
+			})
 		}),
 
 		// Middle Layer: 3D Memory Galaxy
@@ -186,7 +195,15 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(40)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return drawRawLabel(gtx, s.Theme, "NEURAL_MIRROR_CONNECTION_ESTABLISHED", 24, ColorPrimary)
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return drawRawLabel(gtx, s.Theme, "NEURAL_MIRROR_CONNECTION_ESTABLISHED", 24, ColorPrimary)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								txt := fmt.Sprintf("DEBUG_COORD: (%.0f, %.0f) | MEM: %d", s.MousePos.X, s.MousePos.Y, len(s.Memories))
+								return drawRawLabel(gtx, s.Theme, txt, 12, ColorPrimaryDim)
+							}),
+						)
 					})
 				}),
 				
