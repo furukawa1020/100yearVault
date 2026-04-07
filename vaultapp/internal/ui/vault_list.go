@@ -126,9 +126,11 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 		// Base Layer: Interactive Void
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			// 【零の鏡】マウス座標の取得（Move/Drag）を明示的に有効化
-			defer pointer.Filter{
-				Target: &s.NeuralSurface,
-				Kinds:  pointer.Move | pointer.Drag | pointer.Press,
+			defer pointer.InputOp{
+				Tag: &s.NeuralSurface,
+				Filter: pointer.Filter{
+					Kinds: pointer.Move | pointer.Drag | pointer.Press,
+				},
 			}.Add(gtx.Ops)
 
 			return s.NeuralSurface.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
