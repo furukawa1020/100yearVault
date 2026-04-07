@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -122,26 +123,9 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
 
-	// 【零の鏡】最前面で全画面のマウス座標を捕捉 (HUD による遮断を回避)
-	hitStack := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-	gtx.Event(pointer.Filter{
-		Target: &s.NeuralSurface,
-		Kinds:  pointer.Move | pointer.Drag | pointer.Press,
-	})
-	hitStack.Pop()
-
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
 		// Base Layer: Absolute Interactive Background
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			// 【零の鏡】マウス移動とクリックの両方を捕捉
-			return s.NeuralSurface.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				// 1. マウス座標捕捉用のフィルタを登録
-				gtx.Event(pointer.Filter{
-					Target: &s.NeuralSurface,
-					Kinds:  pointer.Move | pointer.Drag | pointer.Press,
-				})
-				// 2. 背景塗りつぶし
-				paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
 				return layout.Dimensions{Size: gtx.Constraints.Max}
 			})
 		}),
