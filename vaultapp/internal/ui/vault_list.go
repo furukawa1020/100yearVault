@@ -32,6 +32,7 @@ type Particle struct {
 	BaseX, BaseY, BaseZ float32 
 	X, Y, Z             float32 
 	VX, VY, VZ          float32 
+	Mass                float32 
 	Color               color.NRGBA
 }
 
@@ -49,10 +50,16 @@ type AppState struct {
 	InitOnce  bool
 	Rotation  float32
 	
-	// Interaction
+	// Interaction & 3D Analytics
 	MousePos      f32.Point
 	PrevMousePos  f32.Point
 	MouseVelocity f32.Point
+	MouseDepth    float32 // Virtual Z-depth driven by speed
+	
+	// Online 3x3 Covariance Tracker
+	MuX, MuY, MuZ                       float32
+	Cxx, Cyy, Czz, Cxy, Cxz, Cyz        float32
+
 	NeuralSurface widget.Clickable
 	FrameCount    int
 
@@ -78,9 +85,15 @@ func (s *AppState) initNeuralSpace() {
 		p.BaseX = float32(math.Sin(angle2)*math.Cos(angle1) * distX)
 		p.BaseY = float32(math.Sin(angle2)*math.Sin(angle1) * distY)
 		p.BaseZ = float32(math.Cos(angle2) * distZ)
+		p.Mass = float32(1.0 + rand.Float64()*4.0) // Mass range 1.0 to 5.0
 		p.Color = ColorDataFragments[rand.Intn(len(ColorDataFragments))]
 	}
 	s.InitOnce = true
+
+	// Initial pseudo-identity for Covariance to avoid zero determinant mapping
+	if s.Cxx == 0 {
+		s.Cxx, s.Cyy, s.Czz = 100.0, 100.0, 100.0 
+	}
 }
 
 func (s *AppState) RotateNeural() {
