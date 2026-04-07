@@ -123,18 +123,17 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.FrameCount++
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		// Base Layer: Interactive Void (Manual Control)
+		// Background
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			// 【零の鏡】全画面をクリップ領域として定義
+			// 【零の鏡】マウス座標の捕捉には、クリップ領域とフィルタの対が必要
 			rect := image.Rectangle{Max: gtx.Constraints.Max}
-			defer clip.Rect(rect).Push(gtx.Ops).Pop()
-			
-			// ポインタ・フィルタを直接登録
-			pointer.Filter{
+			stack := clip.Rect(rect).Push(gtx.Ops)
+			gtx.Event(pointer.Filter{
 				Target: &s.NeuralSurface,
 				Kinds:  pointer.Move | pointer.Drag | pointer.Press,
-			}.Add(gtx.Ops)
-			
+			})
+			stack.Pop()
+
 			paint.FillShape(gtx.Ops, ColorBackground, clip.Rect(rect).Op())
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
