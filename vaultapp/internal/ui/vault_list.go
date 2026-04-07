@@ -51,6 +51,8 @@ type AppState struct {
 	
 	// Interaction
 	MousePos      f32.Point
+	PrevMousePos  f32.Point
+	MouseVelocity f32.Point
 	NeuralSurface widget.Clickable
 	FrameCount    int
 
@@ -129,31 +131,124 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			focalLength := float32(1000) 
 			s.NeuralMemory = nil 
 			
+			// --- Frame Velocity Calculation ---
+			// We calculate velocity here so it gracefully decays to 0 when mouse stops.
+			vX := s.MousePos.X - s.PrevMousePos.X
+			vY := s.MousePos.Y - s.PrevMousePos.Y
+			// Exponential moving average for velocity to stabilize interactions
+			s.MouseVelocity.X = s.MouseVelocity.X*0.7 + vX*0.3
+			s.MouseVelocity.Y = s.MouseVelocity.Y*0.7 + vY*0.3
+			s.PrevMousePos = s.MousePos
+
+			velSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
+			speed := float32(math.Sqrt(float64(velSq)))
+			
+			// Vector normalization for Mahalanobis field
+			uX, uY := float32(0), float32(0)
+			if speed > 0.1 {
+				uX = s.MouseVelocity.X / speed
+				uY = s.MouseVelocity.Y / speed
+			}
+
+			// Mahalanobis constants
+			// n is perpendicular to u
+			nX := -uY
+			nY := uX
+
+			// Minor/Major axis squares
+			// Base radius is 80 (distSq 6400). Stretch along u axis based on speed.
+			a2 := float32(6400.0) // Axis perpendicular to movement
+			b2 := float32(6400.0) + speed*speed*50.0 // Axis along movement (gets stretched significantly)
+
+			closestDistSq := float32(math.MaxFloat32)
+
 			for i := range s.Particles {
 				p := &s.Particles[i]
 				rot := float64(s.Rotation)
 				sinR, cosR := float32(math.Sin(rot)), float32(math.Cos(rot))
+				
+				// 1. Base analytic rotation (Galaxy Orbit)
 				tx := p.BaseX*cosR - p.BaseZ*sinR
 				tz := p.BaseX*sinR + p.BaseZ*cosR
 				ty := p.BaseY
 				
 				scale := focalLength / (focalLength + tz)
-				sx, sy := center.X+tx*scale, center.Y+ty*scale
 				if tz < -focalLength+50 { continue }
 
-				dx, dy := sx-s.MousePos.X, sy-s.MousePos.Y
-				distSq := dx*dx + dy*dy
+				baseSx := center.X + tx*scale
+				baseSy := center.Y + ty*scale
+
+				// 2. Spring Physics (Restoring force to base position)
+				p.VX *= 0.85 // Friction
+				p.VY *= 0.85 // Friction
+				p.X += (0 - p.X) * 0.05 // Spring towards 0 local displacement
+				p.Y += (0 - p.Y) * 0.05
+
+				// 3. Fluid Repulsion (Mahalanobis Space)
+				// d is vector from particle's projected position to mouse
+				dx := baseSx + p.X - s.MousePos.X
+				dy := baseSy + p.Y - s.MousePos.Y
+				euclidDistSq := dx*dx + dy*dy
+
+				if euclidDistSq < closestDistSq {
+					closestDistSq = euclidDistSq
+				}
+
+				if speed > 0.1 {
+					// Project dx, dy onto u and n axes
+					du := dx*uX + dy*uY
+					dn := dx*nX + dy*nY
+
+					// Mahalanobis distance squared calculation
+					mahaD2 := (du*du)/b2 + (dn*dn)/a2
+
+					if mahaD2 < 1.0 { // Inside the hyper-ellipse
+						// 速度向きに対するはんぱつ (Repulsion perpendicular to velocity + slight forward push)
+						// 強さ (1.0 - mahaD2) に比例
+						force := (1.0 - mahaD2) * speed * 2.0
+						
+						// 斥力の向き: 横への弾き飛ばし成分(nX, nY) をメインに、前方成分(uX, uY)も少し混ぜる
+						pushDirX := nX
+						pushDirY := nY
+						// 左右どちらに避けるべきか判定 (dn の符号)
+						if dn < 0 { 
+							pushDirX = -nX
+							pushDirY = -nY
+						}
+						
+						p.VX += pushDirX * force * 0.5
+						p.VY += pushDirY * force * 0.5
+						p.VX += uX * force * 0.2 // Slight push forward
+						p.VY += uY * force * 0.2
+					}
+				} else if euclidDistSq < 2500 && len(s.Memories) > 0 {
+					// Static Hover effect
+					p.VX += dx * 0.02
+					p.VY += dy * 0.02
+				}
+
+				// Apply physics velocities
+				p.X += p.VX
+				p.Y += p.VY
+
+				// Actual screen coordinates mapping including displacement
+				sx := baseSx + p.X
+				sy := baseSy + p.Y
+
 				pSize := 1.5 * scale
 				pColor := p.Color
 				
-				if distSq < 2500 { 
+				// Static Hover effect logic for highlighting and selection
+				if euclidDistSq < 2500 { 
 					pSize *= 3.5
 					pColor.A = 255
-					if len(s.Memories) > 0 {
-						s.NeuralMemory = s.Memories[i%len(s.Memories)]
-					}
 				} else {
 					pColor.A = uint8(180 * scale)
+				}
+
+				// Assign closest memory to lock-on logic
+				if euclidDistSq < 2500 && len(s.Memories) > 0 && euclidDistSq == closestDistSq {
+					s.NeuralMemory = s.Memories[i%len(s.Memories)]
 				}
 
 				rect := image.Rect(int(sx), int(sy), int(sx+float32(pSize)), int(sy+float32(pSize)))
