@@ -111,10 +111,10 @@ func main() {
 				ny := fy / 480.0
 
 				fmt.Println("NEURAL_RESONANCE_DETECTED:", fmt.Sprintf("[X: %.2f, Y: %.2f] Intensity: %.1f", nx, ny, face.Q))
+			} else {
+				fmt.Println("GHOST_RESONANCE (Low Q):", face.Q)
 			}
 		} else {
-			// Don't spam "Lost" too much in Println, just occasionally or print it once.
-			// Actually let's just print it.
 			fmt.Println("NEURAL_RESONANCE_LOST: Searching for user...")
 		}
 
