@@ -50,17 +50,19 @@ func main() {
 	}
 
 	videoTrack := stream.GetVideoTracks()[0]
-	defer videoTrack.Close()
+	// Type assertion to access NewReader on VideoTrack
+	vTrack, ok := videoTrack.(*mediadevices.VideoTrack)
+	if !ok {
+		log.Fatalf("Track is not a VideoTrack")
+	}
+	defer vTrack.Close()
 
 	fmt.Println("Mirror Connection: ESTABLISHED.")
 	fmt.Println("Starting Real-time Gaze Extraction (Press Ctrl+C to stop)...")
 
 	// 3. Start Reader
-	// We request I420 format directly from the track reader
-	reader, err := videoTrack.NewReader(frame.FormatI420)
-	if err != nil {
-		log.Fatalf("Failed to create Video Reader: %v", err)
-	}
+	reader := vTrack.NewReader(false)
+	defer reader.Close()
 	
 	// Pigo params
 	pigoParams := pigo.CascadeParams{
