@@ -83,21 +83,10 @@ func main() {
 		img := f
 
 		// Prepare image for pigo (grayscale)
-		var pixels []uint8
-		var rows, cols int
-
-		// mediadevices frame usually implements image.Image
-		// For I420, we can extract the Y plane (grayscale)
-		if ycc, ok := img.(*image.YCbCr); ok {
-			pixels = ycc.Y
-			rows = ycc.Rect.Dy()
-			cols = ycc.Rect.Dx()
-		} else {
-			// Fallback: convert to grayscale
-			pixels = pigo.RgbToGrayscale(img)
-			rows = img.Bounds().Max.Y
-			cols = img.Bounds().Max.X
-		}
+		// Fallback to pigo's safe converter to avoid slice boundary/stride issues with raw Y
+		pixels := pigo.RgbToGrayscale(img)
+		rows := img.Bounds().Max.Y
+		cols := img.Bounds().Max.X
 
 		// Run Face Detection
 		pigoParams.ImageParams = pigo.ImageParams{
