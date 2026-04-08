@@ -11,6 +11,7 @@ require (
 require (
 	filippo.io/hpke v0.4.0 // indirect
 	gioui.org/shader v1.0.8 // indirect
+	github.com/esimov/pigo v1.4.6 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
