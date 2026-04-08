@@ -5,14 +5,15 @@ go 1.24.0
 require (
 	filippo.io/age v1.3.1
 	gioui.org v0.9.0
+	github.com/esimov/pigo v1.4.6
 	github.com/mattn/go-sqlite3 v1.14.40
+	github.com/pion/mediadevices v0.9.4
 )
 
 require (
 	filippo.io/hpke v0.4.0 // indirect
 	gioui.org/shader v1.0.8 // indirect
 	github.com/blackjack/webcam v0.6.1 // indirect
-	github.com/esimov/pigo v1.4.6 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
@@ -21,7 +22,6 @@ require (
 	github.com/pion/interceptor v0.1.42 // indirect
 	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/mdns/v2 v2.1.0 // indirect
-	github.com/pion/mediadevices v0.9.4 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.16 // indirect
 	github.com/pion/rtp v1.8.26 // indirect
