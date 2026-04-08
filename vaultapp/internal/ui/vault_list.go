@@ -32,7 +32,6 @@ type Particle struct {
 	BaseX, BaseY, BaseZ float32 
 	X, Y, Z             float32 
 	VX, VY, VZ          float32 
-	Mass                float32 
 	Color               color.NRGBA
 }
 
@@ -50,16 +49,10 @@ type AppState struct {
 	InitOnce  bool
 	Rotation  float32
 	
-	// Interaction & 3D Analytics
+	// Interaction
 	MousePos      f32.Point
 	PrevMousePos  f32.Point
 	MouseVelocity f32.Point
-	MouseDepth    float32 // Virtual Z-depth driven by speed
-	
-	// Online 3x3 Covariance Tracker
-	MuX, MuY, MuZ                       float32
-	Cxx, Cyy, Czz, Cxy, Cxz, Cyz        float32
-
 	NeuralSurface widget.Clickable
 	FrameCount    int
 
@@ -85,15 +78,9 @@ func (s *AppState) initNeuralSpace() {
 		p.BaseX = float32(math.Sin(angle2)*math.Cos(angle1) * distX)
 		p.BaseY = float32(math.Sin(angle2)*math.Sin(angle1) * distY)
 		p.BaseZ = float32(math.Cos(angle2) * distZ)
-		p.Mass = float32(1.0 + rand.Float64()*4.0) // Mass range 1.0 to 5.0
 		p.Color = ColorDataFragments[rand.Intn(len(ColorDataFragments))]
 	}
 	s.InitOnce = true
-
-	// Initial pseudo-identity for Covariance to avoid zero determinant mapping
-	if s.Cxx == 0 {
-		s.Cxx, s.Cyy, s.Czz = 100.0, 100.0, 100.0 
-	}
 }
 
 func (s *AppState) RotateNeural() {
@@ -144,9 +131,11 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			focalLength := float32(1000) 
 			s.NeuralMemory = nil 
 			
-			// --- 3D Online Covariance & Analytics Tracker ---
+			// --- Frame Velocity Calculation ---
+			// We calculate velocity here so it gracefully decays to 0 when mouse stops.
 			vX := s.MousePos.X - s.PrevMousePos.X
 			vY := s.MousePos.Y - s.PrevMousePos.Y
+			// Exponential moving average for velocity to stabilize interactions
 			s.MouseVelocity.X = s.MouseVelocity.X*0.7 + vX*0.3
 			s.MouseVelocity.Y = s.MouseVelocity.Y*0.7 + vY*0.3
 			s.PrevMousePos = s.MousePos
@@ -154,51 +143,22 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			velSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
 			speed := float32(math.Sqrt(float64(velSq)))
 			
-			// Virtual Z-depth (diving into galaxy) mapped to cursor speed
-			targetDepth := -speed * 4.0
-			s.MouseDepth = s.MouseDepth*0.8 + targetDepth*0.2
-			vWZ := s.MouseDepth - targetDepth 
-
-			cursorX := s.MousePos.X - center.X
-			cursorY := s.MousePos.Y - center.Y
-			cursorZ := s.MouseDepth 
-
-			// Online Covariance Learning (learning rate alpha = 0.05)
-			alpha := float32(0.05)
-			s.MuX = s.MuX*(1-alpha) + cursorX*alpha
-			s.MuY = s.MuY*(1-alpha) + cursorY*alpha
-			s.MuZ = s.MuZ*(1-alpha) + cursorZ*alpha
-
-			dX := cursorX - s.MuX
-			dY := cursorY - s.MuY
-			dZ := cursorZ - s.MuZ
-
-			s.Cxx = s.Cxx*(1-alpha) + (dX*dX)*alpha
-			s.Cyy = s.Cyy*(1-alpha) + (dY*dY)*alpha
-			s.Czz = s.Czz*(1-alpha) + (dZ*dZ)*alpha
-			s.Cxy = s.Cxy*(1-alpha) + (dX*dY)*alpha
-			s.Cxz = s.Cxz*(1-alpha) + (dX*dZ)*alpha
-			s.Cyz = s.Cyz*(1-alpha) + (dY*dZ)*alpha
-
-			// 3x3 Determinant and Matrix Inverse
-			reg := float32(50.0) // Small Tikhonov regularization
-			cxx := s.Cxx + reg + speed*speed*8.0 // Field naturally stretches rapidly along high variance directions
-			cyy := s.Cyy + reg + speed*speed*8.0
-			czz := s.Czz + reg + speed*speed*4.0
-
-			det := cxx*(cyy*czz - s.Cyz*s.Cyz) - s.Cxy*(s.Cxy*czz - s.Cyz*s.Cxz) + s.Cxz*(s.Cxy*s.Cyz - cyy*s.Cxz)
-			var Ixx, Iyy, Izz, Ixy, Ixz, Iyz float32
-			if det > 0.0001 {
-				invDet := 1.0 / det
-				Ixx = (cyy*czz - s.Cyz*s.Cyz) * invDet
-				Iyy = (cxx*czz - s.Cxz*s.Cxz) * invDet
-				Izz = (cxx*cyy - s.Cxy*s.Cxy) * invDet
-				Ixy = (s.Cxz*s.Cyz - s.Cxy*czz) * invDet
-				Ixz = (s.Cxy*s.Cyz - cyy*s.Cxz) * invDet
-				Iyz = (s.Cxy*s.Cxz - cxx*s.Cyz) * invDet
-			} else {
-				Ixx, Iyy, Izz = 1.0/reg, 1.0/reg, 1.0/reg // Fallback to spherical
+			// Vector normalization for Mahalanobis field
+			uX, uY := float32(0), float32(0)
+			if speed > 0.1 {
+				uX = s.MouseVelocity.X / speed
+				uY = s.MouseVelocity.Y / speed
 			}
+
+			// Mahalanobis constants
+			// n is perpendicular to u
+			nX := -uY
+			nY := uX
+
+			// Minor/Major axis squares
+			// Base radius is 80 (distSq 6400). Stretch along u axis based on speed.
+			a2 := float32(6400.0) // Axis perpendicular to movement
+			b2 := float32(6400.0) + speed*speed*50.0 // Axis along movement (gets stretched significantly)
 
 			closestDistSq := float32(math.MaxFloat32)
 
@@ -207,95 +167,87 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				rot := float64(s.Rotation)
 				sinR, cosR := float32(math.Sin(rot)), float32(math.Cos(rot))
 				
-				// 1. True 3D Base Orbit Coordinates
+				// 1. Base analytic rotation (Galaxy Orbit)
 				tx := p.BaseX*cosR - p.BaseZ*sinR
-				ty := p.BaseY
 				tz := p.BaseX*sinR + p.BaseZ*cosR
+				ty := p.BaseY
 				
-				// 2. 3D Spring Physics (Restoring force is mass-dependent)
-				p.VX *= 0.88 // 3D Friction
-				p.VY *= 0.88 
-				p.VZ *= 0.88
-				
-				springK := 0.08 / p.Mass
-				p.X += (0 - p.X) * springK
-				p.Y += (0 - p.Y) * springK
-				p.Z += (0 - p.Z) * springK
+				scale := focalLength / (focalLength + tz)
+				if tz < -focalLength+50 { continue }
 
-				// 3. Fluid Electromagnetic Mechanics in true Mahalanobis Space
-				worldPX := tx + p.X
-				worldPY := ty + p.Y
-				worldPZ := tz + p.Z
-				
-				vecX := worldPX - cursorX
-				vecY := worldPY - cursorY
-				vecZ := worldPZ - cursorZ
+				baseSx := center.X + tx*scale
+				baseSy := center.Y + ty*scale
 
-				// Quadratic form for Mahalanobis field check
-				mahaD2 := vecX*(Ixx*vecX + Ixy*vecY + Ixz*vecZ) + 
-						  vecY*(Ixy*vecX + Iyy*vecY + Iyz*vecZ) + 
-						  vecZ*(Ixz*vecX + Iyz*vecY + Izz*vecZ)
+				// 2. Spring Physics (Restoring force to base position)
+				p.VX *= 0.85 // Friction
+				p.VY *= 0.85 // Friction
+				p.X += (0 - p.X) * 0.05 // Spring towards 0 local displacement
+				p.Y += (0 - p.Y) * 0.05
 
-				if speed > 0.5 && mahaD2 < 1.0 {
-					// Impact strength governed by matrix proximity and mass inertia
-					intensity := float32(math.Pow(float64(1.0 - mahaD2), 0.5)) * speed * (1.0 / p.Mass)
-					
-					// Outward Hydrodynamic Repulsion 
-					p.VX += vecX * intensity * 0.15
-					p.VY += vecY * intensity * 0.15
-					p.VZ += vecZ * intensity * 0.15
-					
-					// Vector Curl (Biot-Savart Lorentz Force proxy: v x d)
-					// Generates topological vortex twisting the space behind pointer
-					curlX := s.MouseVelocity.Y*vecZ - vWZ*vecY
-					curlY := vWZ*vecX - s.MouseVelocity.X*vecZ
-					curlZ := s.MouseVelocity.X*vecY - s.MouseVelocity.Y*vecX
-					
-					p.VX += curlX * intensity * 0.05
-					p.VY += curlY * intensity * 0.05
-					p.VZ += curlZ * intensity * 0.05
+				// 3. Fluid Repulsion (Mahalanobis Space)
+				// d is vector from particle's projected position to mouse
+				dx := baseSx + p.X - s.MousePos.X
+				dy := baseSy + p.Y - s.MousePos.Y
+				euclidDistSq := dx*dx + dy*dy
+
+				if euclidDistSq < closestDistSq {
+					closestDistSq = euclidDistSq
 				}
 
-				// Soft gravity simulation (Hover interaction in 2D Screen projection logic)
-				screenDX := (worldPX+center.X) - s.MousePos.X
-				screenDY := (worldPY+center.Y) - s.MousePos.Y
-				screenDistSq := screenDX*screenDX + screenDY*screenDY
+				if speed > 0.1 {
+					// Project dx, dy onto u and n axes
+					du := dx*uX + dy*uY
+					dn := dx*nX + dy*nY
 
-				if screenDistSq < closestDistSq {
-					closestDistSq = screenDistSq
+					// Mahalanobis distance squared calculation
+					mahaD2 := (du*du)/b2 + (dn*dn)/a2
+
+					if mahaD2 < 1.0 { // Inside the hyper-ellipse
+						// 速度向きに対するはんぱつ (Repulsion perpendicular to velocity + slight forward push)
+						// 強さ (1.0 - mahaD2) に比例
+						force := (1.0 - mahaD2) * speed * 2.0
+						
+						// 斥力の向き: 横への弾き飛ばし成分(nX, nY) をメインに、前方成分(uX, uY)も少し混ぜる
+						pushDirX := nX
+						pushDirY := nY
+						// 左右どちらに避けるべきか判定 (dn の符号)
+						if dn < 0 { 
+							pushDirX = -nX
+							pushDirY = -nY
+						}
+						
+						p.VX += pushDirX * force * 0.5
+						p.VY += pushDirY * force * 0.5
+						p.VX += uX * force * 0.2 // Slight push forward
+						p.VY += uY * force * 0.2
+					}
+				} else if euclidDistSq < 2500 && len(s.Memories) > 0 {
+					// Static Hover effect
+					p.VX += dx * 0.02
+					p.VY += dy * 0.02
 				}
 
-				if speed < 0.5 && screenDistSq < 4000 && len(s.Memories) > 0 {
-					p.VX -= vecX * 0.003 / p.Mass
-					p.VY -= vecY * 0.003 / p.Mass
-					p.VZ -= vecZ * 0.003 / p.Mass
-				}
-
-				// Accumulate integrations
+				// Apply physics velocities
 				p.X += p.VX
 				p.Y += p.VY
-				p.Z += p.VZ
 
-				// 4. Perspective Camera Projection 
-				finalZ := tz + p.Z
-				scale := focalLength / (focalLength + finalZ)
-				if finalZ < -focalLength+50 { continue }
-				
-				sx := center.X + (tx+p.X)*scale
-				sy := center.Y + (ty+p.Y)*scale
+				// Actual screen coordinates mapping including displacement
+				sx := baseSx + p.X
+				sy := baseSy + p.Y
 
-				pSize := 1.5 * scale * float32(math.Max(1.0, float64(p.Mass)*0.4))
+				pSize := 1.5 * scale
 				pColor := p.Color
 				
-				if screenDistSq < 2500 { 
-					pSize *= 2.5
+				// Static Hover effect logic for highlighting and selection
+				if euclidDistSq < 2500 { 
+					pSize *= 3.5
 					pColor.A = 255
 				} else {
 					pColor.A = uint8(180 * scale)
 				}
 
-				// Assign Memory to locked target
-				if screenDistSq < 2500 && len(s.Memories) > 0 && screenDistSq == closestDistSq {
+				// Assign closest memory to lock-on logic
+				if euclidDistSq < 2500 && len(s.Memories) > 0 && euclidDistSq == closestDistSq {
 					s.NeuralMemory = s.Memories[i%len(s.Memories)]
 				}
 
