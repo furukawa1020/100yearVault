@@ -26,7 +26,6 @@ import (
 	"vaultapp/internal/db"
 	"vaultapp/internal/ui"
 	"vaultapp/internal/vault"
-	"sync"
 )
 
 func main() {
