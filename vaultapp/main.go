@@ -358,9 +358,14 @@ func startWebcamGazeTracking(state *ui.AppState) {
 	if err != nil {
 		fmt.Printf("FaceMask Refining Disabled (Puploc Not Found): %v\n", err)
 	}
-	var puplocCascade *pigo.Pigo
+	var puplocCascade *pigo.PuplocCascade
 	if len(puplocFile) > 0 {
-		puplocCascade, _ = p.Unpack(puplocFile)
+		puplocCascade = pigo.NewPuplocCascade()
+		puplocCascade, err = puplocCascade.UnpackCascade(puplocFile)
+		if err != nil {
+			fmt.Printf("Puploc Unpack Failed: %v\n", err)
+			puplocCascade = nil
+		}
 	}
 
 	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
@@ -443,25 +448,20 @@ func startWebcamGazeTracking(state *ui.AppState) {
 				
 				// 1 & 2: Eyes (Using Pupil Localization if available, otherwise fallback)
 				if puplocCascade != nil {
-					// Left Eye
-					pupilLeft := pigo.Puploc{
-						Row:   face.Row - int(fScale*0.15),
-						Col:   face.Col - int(fScale*0.22),
-						Scale: fScale * 0.8,
+					puplocBase := pigo.Puploc{
+						Row:   face.Row,
+						Col:   face.Col,
+						Scale: float32(face.Scale),
 					}
-					lp := puplocCascade.RunAt(pupilLeft, pigoParams.ImageParams, false)
+					// Left Eye
+					lp := puplocCascade.RunDetector(puplocBase, pigoParams.ImageParams, 0.0, false)
 					if lp != nil {
 						state.FacePoints[0] = f32.Pt(float32(lp.Col)/float32(cols)*1000.0, float32(lp.Row)/float32(rows)*800.0)
 					} else {
 						state.FacePoints[0] = f32.Pt(targetX-fScale*0.22, targetY-fScale*0.15)
 					}
 					// Right Eye
-					pupilRight := pigo.Puploc{
-						Row:   face.Row - int(fScale*0.15),
-						Col:   face.Col + int(fScale*0.22),
-						Scale: fScale * 0.8,
-					}
-					rp := puplocCascade.RunAt(pupilRight, pigoParams.ImageParams, true)
+					rp := puplocCascade.RunDetector(puplocBase, pigoParams.ImageParams, 0.0, true)
 					if rp != nil {
 						state.FacePoints[1] = f32.Pt(float32(rp.Col)/float32(cols)*1000.0, float32(rp.Row)/float32(rows)*800.0)
 					} else {
