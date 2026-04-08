@@ -176,7 +176,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 			// Minor/Major axis squares
 			// Base radius is 80 (distSq 6400). Stretch along u axis based on speed.
-			// Axis along movement (gets stretched significantly)
+			a2 := float32(6400.0) 
 			b2 := float32(6400.0) + speed*speed*50.0 
 			
 			// Depth-based modifications (Z-Axis Interaction)
@@ -246,9 +246,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					silhouetteRadius := float32(60.0) * depthScale
 					for i, fp := range s.FacePoints {
 						fdx := baseSx + p.X - fp.X
-						fdy := baseSy + p.Y - fdy.Y 
-						// Manual fix for typo from previous step
-						fdy = baseSy + p.Y - fp.Y
+						fdy := baseSy + p.Y - fp.Y
 						fDistSq := fdx*fdx + fdy*fdy
 						if fDistSq < silhouetteRadius*silhouetteRadius {
 							fdist := float32(math.Sqrt(float64(fDistSq)))
@@ -262,9 +260,9 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 							// Chromatic Resonance: Shift color based on landmark type
 							// [0,1]: Eyes (Cyan), [3]: Mouth (Magenta)
 							if i < 2 {
-								pColor = lerpColor(pColor, ColorPrimary, localForce*0.5)
+								pColor = lerpColor(pColor, ColorPrimary, localForce*0.7)
 							} else if i == 3 {
-								pColor = lerpColor(pColor, ColorSecondary, localForce*0.5)
+								pColor = lerpColor(pColor, ColorSecondary, localForce*0.7)
 							}
 						}
 					}
