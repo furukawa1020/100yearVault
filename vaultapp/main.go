@@ -436,6 +436,14 @@ func startWebcamGazeTracking(state *ui.AppState) {
 				state.GazePos.X += vx * 0.35 // Snappier tracking
 				state.GazePos.Y += vy * 0.35
 				
+				// --- Z-Axis (Depth) Sensing ---
+				// Map face.Scale to a normalized multiplier. Base is ~200-300px on 640x480.
+				rawScale := float32(face.Scale)
+				targetFaceScale := rawScale / 250.0 // Normalize around 1.0
+				if targetFaceScale < 0.5 { targetFaceScale = 0.5 }
+				if targetFaceScale > 2.5 { targetFaceScale = 2.5 }
+				state.FaceScale = state.FaceScale*0.9 + targetFaceScale*0.1
+
 				state.GazeActive = true
 
 				// --- Landmark Extraction (The Avatar Silhouette) ---
