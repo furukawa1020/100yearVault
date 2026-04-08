@@ -62,7 +62,6 @@ func main() {
 
 	// 3. Start Reader
 	reader := vTrack.NewReader(false)
-	defer reader.Close()
 	
 	// Pigo params
 	pigoParams := pigo.CascadeParams{
