@@ -16,6 +16,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
+	"gioui.org/f32"
 
 	pigo "github.com/esimov/pigo/core"
 	"github.com/pion/mediadevices"
@@ -357,9 +358,9 @@ func startWebcamGazeTracking(state *ui.AppState) {
 	if err != nil {
 		fmt.Printf("FaceMask Refining Disabled (Puploc Not Found): %v\n", err)
 	}
-	var puploc *pigo.Puploc
+	var puplocCascade *pigo.Pigo
 	if len(puplocFile) > 0 {
-		puploc, _ = p.UnpackPuploc(puplocFile)
+		puplocCascade, _ = p.Unpack(puplocFile)
 	}
 
 	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
@@ -441,24 +442,34 @@ func startWebcamGazeTracking(state *ui.AppState) {
 				fScale := float32(face.Scale)
 				
 				// 1 & 2: Eyes (Using Pupil Localization if available, otherwise fallback)
-				if puploc != nil {
+				if puplocCascade != nil {
 					// Left Eye
-					lp := puploc.RunAt(face.Row-int(fScale*0.15), face.Col-int(fScale*0.2), fScale*0.25, 0.0, pigoParams.ImageParams)
+					pupilLeft := pigo.Puploc{
+						Row:   face.Row - int(fScale*0.15),
+						Col:   face.Col - int(fScale*0.22),
+						Scale: fScale * 0.8,
+					}
+					lp := puplocCascade.RunAt(pupilLeft, pigoParams.ImageParams, false)
 					if lp != nil {
 						state.FacePoints[0] = f32.Pt(float32(lp.Col)/float32(cols)*1000.0, float32(lp.Row)/float32(rows)*800.0)
 					} else {
-						state.FacePoints[0] = f32.Pt(targetX-fScale*0.2, targetY-fScale*0.2)
+						state.FacePoints[0] = f32.Pt(targetX-fScale*0.22, targetY-fScale*0.15)
 					}
 					// Right Eye
-					rp := puploc.RunAt(face.Row-int(fScale*0.15), face.Col+int(fScale*0.2), fScale*0.25, 0.0, pigoParams.ImageParams)
+					pupilRight := pigo.Puploc{
+						Row:   face.Row - int(fScale*0.15),
+						Col:   face.Col + int(fScale*0.22),
+						Scale: fScale * 0.8,
+					}
+					rp := puplocCascade.RunAt(pupilRight, pigoParams.ImageParams, true)
 					if rp != nil {
 						state.FacePoints[1] = f32.Pt(float32(rp.Col)/float32(cols)*1000.0, float32(rp.Row)/float32(rows)*800.0)
 					} else {
-						state.FacePoints[1] = f32.Pt(targetX+fScale*0.2, targetY-fScale*0.2)
+						state.FacePoints[1] = f32.Pt(targetX+fScale*0.22, targetY-fScale*0.15)
 					}
 				} else {
-					state.FacePoints[0] = f32.Pt(targetX-fScale*0.2, targetY-fScale*0.2)
-					state.FacePoints[1] = f32.Pt(targetX+fScale*0.2, targetY-fScale*0.2)
+					state.FacePoints[0] = f32.Pt(targetX-fScale*0.22, targetY-fScale*0.15)
+					state.FacePoints[1] = f32.Pt(targetX+fScale*0.22, targetY-fScale*0.15)
 				}
 
 				// 3: Nose (Center of face usually)
