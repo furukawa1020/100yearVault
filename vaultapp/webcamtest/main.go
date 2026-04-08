@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/esimov/pigo/v2"
+	"github.com/esimov/pigo"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
