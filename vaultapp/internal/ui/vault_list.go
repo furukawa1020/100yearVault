@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math"
 	"math/rand"
+	"sync"
 
 	"gioui.org/f32"
 	"gioui.org/layout"
@@ -60,6 +61,7 @@ type AppState struct {
 	GazeActive    bool
 	NeuralSurface widget.Clickable
 	FrameCount    int
+	FaceMu        sync.Mutex // Added for thread-safe landmark updates
 
 	// Screen Navigation
 	CurrentScreen Screen
@@ -243,8 +245,13 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				// 4. Face Silhouette Points (The "Avatar" Logic)
 				avatarForce := float32(0)
 				if s.GazeActive && speed < 1.0 { 
-					silhouetteRadius := float32(60.0) * depthScale
-					for i, fp := range s.FacePoints {
+					s.FaceMu.Lock()
+					fPoints := s.FacePoints
+					fScale := s.FaceScale
+					s.FaceMu.Unlock()
+
+					silhouetteRadius := float32(60.0) * fScale
+					for i, fp := range fPoints {
 						fdx := baseSx + p.X - fp.X
 						fdy := baseSy + p.Y - fp.Y
 						fDistSq := fdx*fdx + fdy*fdy

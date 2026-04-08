@@ -27,6 +27,7 @@ import (
 	"vaultapp/internal/db"
 	"vaultapp/internal/ui"
 	"vaultapp/internal/vault"
+	"sync"
 )
 
 func main() {
@@ -377,13 +378,10 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		}
 	}
 
-	time.Sleep(1500 * time.Millisecond) // Let OS release camera from previous runs
+	time.Sleep(2000 * time.Millisecond) // Robust wait for OS camera release
 
 	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
-		Video: func(c *mediadevices.MediaTrackConstraints) {
-			c.Width = prop.Int(320)
-			c.Height = prop.Int(240)
-		},
+		Video: func(c *mediadevices.MediaTrackConstraints) {}, 
 	})
 	if err != nil {
 		fmt.Printf("GazeTracking Disabled (No Webcam): %v\n", err)
@@ -444,6 +442,7 @@ func startWebcamGazeTracking(state *ui.AppState) {
 				vx := targetX - state.GazePos.X
 				vy := targetY - state.GazePos.Y
 				
+				state.FaceMu.Lock()
 				state.GazeVelocity.X = state.GazeVelocity.X*0.6 + vx*0.4
 				state.GazeVelocity.Y = state.GazeVelocity.Y*0.6 + vy*0.4
 				
@@ -451,39 +450,35 @@ func startWebcamGazeTracking(state *ui.AppState) {
 				state.GazePos.Y += vy * 0.35
 				
 				// --- Z-Axis (Depth) Sensing ---
-				// Map face.Scale to a normalized multiplier. Base is ~200-300px on 640x480.
 				rawScale := float32(face.Scale)
-				targetFaceScale := rawScale / 250.0 // Normalize around 1.0
+				targetFaceScale := rawScale / 250.0 
 				if targetFaceScale < 0.5 { targetFaceScale = 0.5 }
 				if targetFaceScale > 2.5 { targetFaceScale = 2.5 }
 				state.FaceScale = state.FaceScale*0.9 + targetFaceScale*0.1
 
 				state.GazeActive = true
 
-				// --- Landmark Extraction (The Avatar Silhouette) ---
-				// We identify 4 key points for repulsion:
-				// [0]: Left Eye, [1]: Right Eye, [2]: Nose, [3]: Mouth
 				if len(state.FacePoints) < 4 {
 					state.FacePoints = make([]f32.Point, 4)
 				}
+				state.FaceMu.Unlock()
 
 				fScale := float32(face.Scale)
 				
-				// 1 & 2: Eyes (Using Pupil Localization if available, otherwise fallback)
+				state.FaceMu.Lock()
+				// 1 & 2: Eyes 
 				if puplocCascade != nil {
 					puplocBase := pigo.Puploc{
 						Row:   face.Row,
 						Col:   face.Col,
 						Scale: float32(face.Scale),
 					}
-					// Left Eye
 					lp := puplocCascade.RunDetector(puplocBase, pigoParams.ImageParams, 0.0, false)
 					if lp != nil {
 						state.FacePoints[0] = f32.Pt(float32(lp.Col)/float32(cols)*1000.0, float32(lp.Row)/float32(rows)*800.0)
 					} else {
 						state.FacePoints[0] = f32.Pt(targetX-fScale*0.22, targetY-fScale*0.15)
 					}
-					// Right Eye
 					rp := puplocCascade.RunDetector(puplocBase, pigoParams.ImageParams, 0.0, true)
 					if rp != nil {
 						state.FacePoints[1] = f32.Pt(float32(rp.Col)/float32(cols)*1000.0, float32(rp.Row)/float32(rows)*800.0)
@@ -500,6 +495,7 @@ func startWebcamGazeTracking(state *ui.AppState) {
 
 				// 4: Mouth (Lower part)
 				state.FacePoints[3] = f32.Pt(targetX, targetY+fScale*0.3)
+				state.FaceMu.Unlock()
 
 			} else {
 				state.GazeActive = false
