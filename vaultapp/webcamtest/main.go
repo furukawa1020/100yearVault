@@ -9,8 +9,6 @@ import (
 
 	pigo "github.com/esimov/pigo/core"
 	"github.com/pion/mediadevices"
-	"github.com/pion/mediadevices/pkg/frame"
-	"github.com/pion/mediadevices/pkg/prop"
 
 	// Note: You may need a specific driver for Windows.
 	// This is the generic camera driver.
