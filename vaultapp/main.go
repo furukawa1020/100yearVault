@@ -334,7 +334,6 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			}
 		}
 	}
-	}
 }
 
 func startWebcamGazeTracking(state *ui.AppState) {
