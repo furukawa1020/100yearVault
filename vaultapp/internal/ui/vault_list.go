@@ -232,20 +232,16 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				}
 
 				// 4. Face Silhouette Points (The "Avatar" Logic)
-				// If Gaze is active, we apply smaller, sharper repulsion at eyes/mouth
-				if s.GazeActive && speed < 1.0 { // Only silhouette when relatively still
-					silhouetteRadiusSq := float32(50.0 * 50.0) // Brighter "holes"
+				if s.GazeActive && speed < 1.0 { 
+					silhouetteRadius := float32(60.0) // Expanded reach
 					for _, fp := range s.FacePoints {
 						fdx := baseSx + p.X - fp.X
-						fdy := baseSy + p.Y - fdy.Y // wait, fdy.Y? Fixed to fdy/fp.Y below
-						// Correcting the manual bug in multi_replace below
 						fdy := baseSy + p.Y - fp.Y
 						fDistSq := fdx*fdx + fdy*fdy
-						if fDistSq < silhouetteRadiusSq {
-							// Linear push out
+						if fDistSq < silhouetteRadius*silhouetteRadius {
 							fdist := float32(math.Sqrt(float64(fDistSq)))
 							if fdist < 0.1 { fdist = 0.1 }
-							force := (1.0 - fdist/50.0) * 2.5 // Increased force
+							force := (1.0 - fdist/silhouetteRadius) * 3.5 
 							p.VX += (fdx / fdist) * force
 							p.VY += (fdy / fdist) * force
 						}

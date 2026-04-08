@@ -430,10 +430,11 @@ func startWebcamGazeTracking(state *ui.AppState) {
 				vx := targetX - state.GazePos.X
 				vy := targetY - state.GazePos.Y
 				
-				state.GazeVelocity.X = state.GazeVelocity.X*0.7 + vx*0.3
-				state.GazeVelocity.Y = state.GazeVelocity.Y*0.7 + vy*0.3
-				state.GazePos.X += vx * 0.15 
-				state.GazePos.Y += vy * 0.15
+				state.GazeVelocity.X = state.GazeVelocity.X*0.6 + vx*0.4
+				state.GazeVelocity.Y = state.GazeVelocity.Y*0.6 + vy*0.4
+				
+				state.GazePos.X += vx * 0.35 // Snappier tracking
+				state.GazePos.Y += vy * 0.35
 				
 				state.GazeActive = true
 
