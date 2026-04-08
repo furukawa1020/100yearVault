@@ -176,8 +176,14 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 			// Minor/Major axis squares
 			// Base radius is 80 (distSq 6400). Stretch along u axis based on speed.
-			a2 := float32(6400.0) // Axis perpendicular to movement
-			b2 := float32(6400.0) + speed*speed*50.0 // Axis along movement (gets stretched significantly)
+			// Axis along movement (gets stretched significantly)
+			b2 := float32(6400.0) + speed*speed*50.0 
+			
+			// Depth-based modifications (Z-Axis Interaction)
+			depthScale := s.FaceScale
+			if depthScale < 0.1 { depthScale = 1.0 } // Default fallback
+			a2 *= depthScale
+			b2 *= depthScale
 
 			closestDistSq := float32(math.MaxFloat32)
 
@@ -232,19 +238,34 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					p.VY += dy * 0.02
 				}
 
+				pColor := p.Color
+				
 				// 4. Face Silhouette Points (The "Avatar" Logic)
+				avatarForce := float32(0)
 				if s.GazeActive && speed < 1.0 { 
-					silhouetteRadius := float32(60.0) // Expanded reach
-					for _, fp := range s.FacePoints {
+					silhouetteRadius := float32(60.0) * depthScale
+					for i, fp := range s.FacePoints {
 						fdx := baseSx + p.X - fp.X
-						fdy := baseSy + p.Y - fp.Y
+						fdy := baseSy + p.Y - fdy.Y 
+						// Manual fix for typo from previous step
+						fdy = baseSy + p.Y - fp.Y
 						fDistSq := fdx*fdx + fdy*fdy
 						if fDistSq < silhouetteRadius*silhouetteRadius {
 							fdist := float32(math.Sqrt(float64(fDistSq)))
 							if fdist < 0.1 { fdist = 0.1 }
-							force := (1.0 - fdist/silhouetteRadius) * 3.5 
-							p.VX += (fdx / fdist) * force
-							p.VY += (fdy / fdist) * force
+							localForce := (1.0 - fdist/silhouetteRadius) * 3.5 
+							p.VX += (fdx / fdist) * localForce
+							p.VY += (fdy / fdist) * localForce
+							
+							if localForce > avatarForce { avatarForce = localForce }
+							
+							// Chromatic Resonance: Shift color based on landmark type
+							// [0,1]: Eyes (Cyan), [3]: Mouth (Magenta)
+							if i < 2 {
+								pColor = lerpColor(pColor, ColorPrimary, localForce*0.5)
+							} else if i == 3 {
+								pColor = lerpColor(pColor, ColorSecondary, localForce*0.5)
+							}
 						}
 					}
 				}
@@ -257,15 +278,20 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				sx := baseSx + p.X
 				sy := baseSy + p.Y
 
-				pSize := 1.5 * scale
-				pColor := p.Color
+				pSize := 1.5 * scale * depthScale
 				
-				// Static Hover effect logic for highlighting and selection
-				if euclidDistSq < 2500 { 
+				// Scintillation (Starry shimmer)
+				shimmer := float32(math.Sin(float64(s.FrameCount)*0.1 + float64(i)*0.01)) * 30
+				
+				// Static Hover / Interaction Highlighting
+				if euclidDistSq < 2500 || avatarForce > 0.5 { 
 					pSize *= 3.5
 					pColor.A = 255
+					if euclidDistSq < 2500 {
+						pColor = lerpColor(pColor, ColorQuaternary, 0.6) // Interaction Glow (Gold)
+					}
 				} else {
-					pColor.A = uint8(180 * scale)
+					pColor.A = uint8(math.Max(0, math.Min(255, float64(180*scale)+float64(shimmer))))
 				}
 
 				// Assign closest memory to lock-on logic
@@ -332,4 +358,15 @@ func drawRawLabel(gtx layout.Context, th *material.Theme, txt string, size int, 
 func drawBackground(ops *op.Ops, gtx layout.Context, c color.NRGBA) {
 	dr := image.Rectangle{Max: image.Pt(gtx.Constraints.Max.X, gtx.Constraints.Max.Y)}
 	paint.FillShape(ops, c, clip.Rect(dr).Op())
+}
+
+func lerpColor(c1, c2 color.NRGBA, t float32) color.NRGBA {
+	if t > 1 { t = 1 }
+	if t < 0 { t = 0 }
+	return color.NRGBA{
+		R: uint8(float32(c1.R)*(1-t) + float32(c2.R)*t),
+		G: uint8(float32(c1.G)*(1-t) + float32(c2.G)*t),
+		B: uint8(float32(c1.B)*(1-t) + float32(c2.B)*t),
+		A: uint8(float32(c1.A)*(1-t) + float32(c2.A)*t),
+	}
 }
