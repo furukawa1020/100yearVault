@@ -17,6 +17,10 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 
+	pigo "github.com/esimov/pigo/core"
+	"github.com/pion/mediadevices"
+	_ "github.com/pion/mediadevices/pkg/driver/camera"
+
 	"vaultapp/internal/crypto"
 	"vaultapp/internal/db"
 	"vaultapp/internal/ui"
@@ -81,6 +85,9 @@ func loop(w *app.Window) error {
 			}
 		}
 	}()
+
+	// EYE-OF-THE-COSMOS: Webcam Integration
+	go startWebcamGazeTracking(state)
 
 	var ops op.Ops
 	for {
