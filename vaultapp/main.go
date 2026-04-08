@@ -20,7 +20,6 @@ import (
 
 	pigo "github.com/esimov/pigo/core"
 	"github.com/pion/mediadevices"
-	"github.com/pion/mediadevices/pkg/prop"
 	_ "github.com/pion/mediadevices/pkg/driver/camera"
 
 	"vaultapp/internal/crypto"
