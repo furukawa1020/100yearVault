@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io/ioutil"
 	"log"
 
-	"github.com/esimov/pigo"
+	pigo "github.com/esimov/pigo/core"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -61,7 +63,6 @@ func main() {
 		MaxSize:     1000,
 		ShiftFactor: 0.1,
 		ScaleFactor: 1.1,
-		IouThreshold: 0.2,
 	}
 
 	for {
@@ -92,8 +93,15 @@ func main() {
 		}
 
 		// Run Face Detection
-		results := classifier.RunCascade(*gImg, pigoParams)
-		results = classifier.ClusterResults(results, 0.2)
+		pigoParams.ImageParams = pigo.ImageParams{
+			Pixels: gImg.Pixels,
+			Rows:   gImg.Rows,
+			Cols:   gImg.Cols,
+			Dim:    gImg.Dim,
+		}
+		
+		results := classifier.RunCascade(pigoParams, 0.0)
+		results = classifier.ClusterDetections(results, 0.2)
 
 		if len(results) > 0 {
 			// Pick the most prominent face
