@@ -96,6 +96,14 @@ func loop(w *app.Window) error {
 		case app.DestroyEvent:
 			return e.Err
 		case app.FrameEvent:
+			// Kinetic resonance: speed up rotation when user is close
+			rotSpeed := float32(0.005)
+			if state.GazeActive {
+				rotSpeed = 0.005 + (state.FaceScale-1.0)*0.01
+				if rotSpeed < 0.002 { rotSpeed = 0.002 }
+			}
+			state.Rotation += rotSpeed
+
 			gtx := app.NewContext(&ops, e)
 
 			// 【絶対的回帰 v9.0】Neural Zero Layering
