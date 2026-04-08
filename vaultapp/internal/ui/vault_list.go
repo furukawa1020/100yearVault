@@ -203,7 +203,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				p.Y += (0 - p.Y) * 0.05
 
 				// 3. Fluid Repulsion (Mahalanobis Space)
-				// d is vector from particle's projected position to target pointer
+				// Primary interaction point (Mouse or Gaze Center)
 				dx := baseSx + p.X - targetPos.X
 				dy := baseSy + p.Y - targetPos.Y
 				euclidDistSq := dx*dx + dy*dy
@@ -213,36 +213,41 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				}
 
 				if speed > 0.1 {
-					// Project dx, dy onto u and n axes
 					du := dx*uX + dy*uY
 					dn := dx*nX + dy*nY
-
-					// Mahalanobis distance squared calculation
 					mahaD2 := (du*du)/b2 + (dn*dn)/a2
 
-					if mahaD2 < 1.0 { // Inside the hyper-ellipse
-						// 速度向きに対するはんぱつ (Repulsion perpendicular to velocity + slight forward push)
-						// 強さ (1.0 - mahaD2) に比例
+					if mahaD2 < 1.0 {
 						force := (1.0 - mahaD2) * speed * 2.0
-						
-						// 斥力の向き: 横への弾き飛ばし成分(nX, nY) をメインに、前方成分(uX, uY)も少し混ぜる
-						pushDirX := nX
-						pushDirY := nY
-						// 左右どちらに避けるべきか判定 (dn の符号)
-						if dn < 0 { 
-							pushDirX = -nX
-							pushDirY = -nY
-						}
-						
+						pushDirX, pushDirY := nX, nY
+						if dn < 0 { pushDirX, pushDirY = -nX, -nY }
 						p.VX += pushDirX * force * 0.5
 						p.VY += pushDirY * force * 0.5
-						p.VX += uX * force * 0.2 // Slight push forward
+						p.VX += uX * force * 0.2
 						p.VY += uY * force * 0.2
 					}
 				} else if euclidDistSq < 2500 && len(s.Memories) > 0 {
-					// Static Hover effect
 					p.VX += dx * 0.02
 					p.VY += dy * 0.02
+				}
+
+				// 4. Face Silhouette Points (The "Avatar" Logic)
+				// If Gaze is active, we apply smaller, sharper repulsion at eyes/mouth
+				if s.GazeActive && speed < 1.0 { // Only silhouette when relatively still
+					silhouetteRadiusSq := float32(30.0 * 30.0) // Small, sharp holes
+					for _, fp := range s.FacePoints {
+						fdx := baseSx + p.X - fp.X
+						fdy := baseSy + p.Y - fp.Y
+						fDistSq := fdx*fdx + fdy*fdy
+						if fDistSq < silhouetteRadiusSq {
+							// Linear push out
+							fdist := float32(math.Sqrt(float64(fDistSq)))
+							if fdist < 0.1 { fdist = 0.1 }
+							force := (1.0 - fdist/30.0) * 1.5
+							p.VX += (fdx / fdist) * force
+							p.VY += (fdy / fdist) * force
+						}
+					}
 				}
 
 				// Apply physics velocities
