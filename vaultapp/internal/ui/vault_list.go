@@ -143,14 +143,28 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			s.MouseVelocity.Y = s.MouseVelocity.Y*0.7 + vY*0.3
 			s.PrevMousePos = s.MousePos
 
-			velSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
+			// --- Target Tracking Synthesis ---
+			// We determine the active pointer: Mouse takes priority if moving, otherwise Gaze.
+			targetPos := s.MousePos
+			targetVel := s.MouseVelocity
+
+			if s.GazeActive {
+				// If Gaze is active and mouse is relatively still, let gaze take over
+				mouseActiveSpeedSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
+				if mouseActiveSpeedSq < 1.0 { // Mouse is parked
+					targetPos = s.GazePos
+					targetVel = s.GazeVelocity
+				}
+			}
+
+			velSq := targetVel.X*targetVel.X + targetVel.Y*targetVel.Y
 			speed := float32(math.Sqrt(float64(velSq)))
 			
 			// Vector normalization for Mahalanobis field
 			uX, uY := float32(0), float32(0)
 			if speed > 0.1 {
-				uX = s.MouseVelocity.X / speed
-				uY = s.MouseVelocity.Y / speed
+				uX = targetVel.X / speed
+				uY = targetVel.Y / speed
 			}
 
 			// Mahalanobis constants
@@ -188,9 +202,9 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				p.Y += (0 - p.Y) * 0.05
 
 				// 3. Fluid Repulsion (Mahalanobis Space)
-				// d is vector from particle's projected position to mouse
-				dx := baseSx + p.X - s.MousePos.X
-				dy := baseSy + p.Y - s.MousePos.Y
+				// d is vector from particle's projected position to target pointer
+				dx := baseSx + p.X - targetPos.X
+				dy := baseSy + p.Y - targetPos.Y
 				euclidDistSq := dx*dx + dy*dy
 
 				if euclidDistSq < closestDistSq {
