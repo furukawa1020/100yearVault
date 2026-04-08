@@ -55,7 +55,12 @@ func main() {
 	fmt.Println("Mirror Connection: ESTABLISHED.")
 	fmt.Println("Starting Real-time Gaze Extraction (Press Ctrl+C to stop)...")
 
-	reader := videoTrack.NewReader(false)
+	// 3. Start Reader
+	// We request I420 format directly from the track reader
+	reader, err := videoTrack.NewReader(frame.FormatI420)
+	if err != nil {
+		log.Fatalf("Failed to create Video Reader: %v", err)
+	}
 	
 	// Pigo params
 	pigoParams := pigo.CascadeParams{
@@ -77,27 +82,28 @@ func main() {
 		img := f
 
 		// Prepare image for pigo (grayscale)
-		// We can use pigo.RgbToGrayscale or just access the Y channel if it's YCbCr
-		var gImg *pigo.Image
+		var pixels []uint8
+		var rows, cols int
+
+		// mediadevices frame usually implements image.Image
+		// For I420, we can extract the Y plane (grayscale)
 		if ycc, ok := img.(*image.YCbCr); ok {
-			// Fast path for YCbCr (direct access to Y channel)
-			gImg = &pigo.Image{
-				Pixels: ycc.Y,
-				Rows:   ycc.Rect.Dy(),
-				Cols:   ycc.Rect.Dx(),
-				Dim:    ycc.Rect.Dx(),
-			}
+			pixels = ycc.Y
+			rows = ycc.Rect.Dy()
+			cols = ycc.Rect.Dx()
 		} else {
-			// Fallback (slow)
-			gImg = pigo.RgbToGrayscale(img)
+			// Fallback: convert to grayscale
+			pixels = pigo.RgbToGrayscale(img)
+			rows = img.Bounds().Max.Y
+			cols = img.Bounds().Max.X
 		}
 
 		// Run Face Detection
 		pigoParams.ImageParams = pigo.ImageParams{
-			Pixels: gImg.Pixels,
-			Rows:   gImg.Rows,
-			Cols:   gImg.Cols,
-			Dim:    gImg.Dim,
+			Pixels: pixels,
+			Rows:   rows,
+			Cols:   cols,
+			Dim:    cols,
 		}
 		
 		results := classifier.RunCascade(pigoParams, 0.0)
