@@ -379,6 +379,11 @@ func startWebcamGazeTracking(state *ui.AppState) {
 	time.Sleep(2000 * time.Millisecond) // Robust wait for OS camera release
 	fmt.Println("Attempting to connect to Mirror Surface (Webcam)...")
 
+	devices := mediadevices.EnumerateDevices()
+	for _, d := range devices {
+		fmt.Printf("Detected Mirror Device: %s (%s) [%s]\n", d.Label, d.Kind, d.DeviceID)
+	}
+
 	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
 		Video: func(c *mediadevices.MediaTrackConstraints) {}, 
 	})
