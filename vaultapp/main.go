@@ -352,6 +352,16 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		return
 	}
 
+	// Load Pupil Localization Cascade
+	puplocFile, err := os.ReadFile(filepath.Join(".", "assets", "models", "puploc.bin"))
+	if err != nil {
+		fmt.Printf("FaceMask Refining Disabled (Puploc Not Found): %v\n", err)
+	}
+	var puploc *pigo.Puploc
+	if len(puplocFile) > 0 {
+		puploc, _ = p.UnpackPuploc(puplocFile)
+	}
+
 	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
 		Video: func(c *mediadevices.MediaTrackConstraints) {}, // Let Windows choose
 	})
@@ -404,6 +414,7 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		if len(results) > 0 {
 			face := results[0]
 			if face.Q > 5.0 {
+				// Base Face Center (Normalized)
 				nx := float32(face.Col) / float32(cols)
 				ny := float32(face.Row) / float32(rows)
 				
@@ -415,11 +426,47 @@ func startWebcamGazeTracking(state *ui.AppState) {
 				
 				state.GazeVelocity.X = state.GazeVelocity.X*0.7 + vx*0.3
 				state.GazeVelocity.Y = state.GazeVelocity.Y*0.7 + vy*0.3
-				
 				state.GazePos.X += vx * 0.15 
 				state.GazePos.Y += vy * 0.15
 				
 				state.GazeActive = true
+
+				// --- Landmark Extraction (The Avatar Silhouette) ---
+				// We identify 4 key points for repulsion:
+				// [0]: Left Eye, [1]: Right Eye, [2]: Nose, [3]: Mouth
+				if len(state.FacePoints) < 4 {
+					state.FacePoints = make([]f32.Point, 4)
+				}
+
+				fScale := float32(face.Scale)
+				
+				// 1 & 2: Eyes (Using Pupil Localization if available, otherwise fallback)
+				if puploc != nil {
+					// Left Eye
+					lp := puploc.RunAt(face.Row-int(fScale*0.15), face.Col-int(fScale*0.2), fScale*0.25, 0.0, pigoParams.ImageParams)
+					if lp != nil {
+						state.FacePoints[0] = f32.Pt(float32(lp.Col)/float32(cols)*1000.0, float32(lp.Row)/float32(rows)*800.0)
+					} else {
+						state.FacePoints[0] = f32.Pt(targetX-fScale*0.2, targetY-fScale*0.2)
+					}
+					// Right Eye
+					rp := puploc.RunAt(face.Row-int(fScale*0.15), face.Col+int(fScale*0.2), fScale*0.25, 0.0, pigoParams.ImageParams)
+					if rp != nil {
+						state.FacePoints[1] = f32.Pt(float32(rp.Col)/float32(cols)*1000.0, float32(rp.Row)/float32(rows)*800.0)
+					} else {
+						state.FacePoints[1] = f32.Pt(targetX+fScale*0.2, targetY-fScale*0.2)
+					}
+				} else {
+					state.FacePoints[0] = f32.Pt(targetX-fScale*0.2, targetY-fScale*0.2)
+					state.FacePoints[1] = f32.Pt(targetX+fScale*0.2, targetY-fScale*0.2)
+				}
+
+				// 3: Nose (Center of face usually)
+				state.FacePoints[2] = f32.Pt(targetX, targetY+fScale*0.05)
+
+				// 4: Mouth (Lower part)
+				state.FacePoints[3] = f32.Pt(targetX, targetY+fScale*0.3)
+
 			} else {
 				state.GazeActive = false
 			}
