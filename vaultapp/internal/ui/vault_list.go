@@ -55,6 +55,7 @@ type AppState struct {
 	MouseVelocity f32.Point
 	GazePos       f32.Point
 	GazeVelocity  f32.Point
+	FacePoints    []f32.Point
 	GazeActive    bool
 	NeuralSurface widget.Clickable
 	FrameCount    int
