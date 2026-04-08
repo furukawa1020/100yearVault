@@ -376,33 +376,46 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		}
 	}
 
-	time.Sleep(2000 * time.Millisecond) // Robust wait for OS camera release
 	fmt.Println("Attempting to connect to Mirror Surface (Webcam)...")
 
-	devices := mediadevices.EnumerateDevices()
-	for _, d := range devices {
-		fmt.Printf("Detected Mirror Device: %s (%s) [%s]\n", d.Label, d.Kind, d.DeviceID)
+	var stream mediadevices.MediaStream
+	var captureErr error
+
+	// Retry logic for Windows Filter Graph releases
+	for retry := 0; retry < 3; retry++ {
+		stream, captureErr = mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
+			Video: func(c *mediadevices.MediaTrackConstraints) {}, 
+		})
+		if captureErr == nil {
+			break
+		}
+		fmt.Printf("Mirror Surface Busy (Retry %d/3): %v\n", retry+1, captureErr)
+		time.Sleep(1000 * time.Millisecond)
 	}
 
-	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
-		Video: func(c *mediadevices.MediaTrackConstraints) {}, 
-	})
-	if err != nil {
-		fmt.Printf("GazeTracking Disabled (No Webcam): %v\n", err)
+	if captureErr != nil {
+		fmt.Printf("GazeTracking Permanently Disabled: %v\n", captureErr)
+		state.GazeActive = false
 		return
 	}
 
 	videoTracks := stream.GetVideoTracks()
 	if len(videoTracks) == 0 {
+		state.GazeActive = false
 		return
 	}
 	videoTrack := videoTracks[0]
 	vTrack, ok := videoTrack.(*mediadevices.VideoTrack)
 	if !ok {
+		state.GazeActive = false
 		return
 	}
-	defer vTrack.Close()
+	defer func() {
+		vTrack.Close()
+		fmt.Println("Mirror Surface Released.")
+	}()
 
+	fmt.Println("Mirror Connection: ESTABLISHED.")
 	reader := vTrack.NewReader(false)
 
 	pigoParams := pigo.CascadeParams{
