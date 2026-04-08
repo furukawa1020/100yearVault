@@ -20,6 +20,7 @@ import (
 
 	pigo "github.com/esimov/pigo/core"
 	"github.com/pion/mediadevices"
+	"github.com/pion/mediadevices/pkg/prop"
 	_ "github.com/pion/mediadevices/pkg/driver/camera"
 
 	"vaultapp/internal/crypto"
@@ -376,8 +377,13 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		}
 	}
 
+	time.Sleep(1500 * time.Millisecond) // Let OS release camera from previous runs
+
 	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
-		Video: func(c *mediadevices.MediaTrackConstraints) {}, // Let Windows choose
+		Video: func(c *mediadevices.MediaTrackConstraints) {
+			c.Width = prop.Int(320)
+			c.Height = prop.Int(240)
+		},
 	})
 	if err != nil {
 		fmt.Printf("GazeTracking Disabled (No Webcam): %v\n", err)
