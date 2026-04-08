@@ -37,12 +37,9 @@ func main() {
 	fmt.Println("Attempting to connect to Mirror Surface (Webcam)...")
 
 	// 2. Setup Webcam
+	// Request without strict constraints to prevent "Wrong frame buffer size" panic on Windows
 	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
-		Video: func(c *mediadevices.MediaTrackConstraints) {
-			c.Width = prop.Int(640)
-			c.Height = prop.Int(480)
-			c.FrameFormat = prop.FrameFormat(frame.FormatI420) // Common internal format
-		},
+		Video: func(c *mediadevices.MediaTrackConstraints) {},
 	})
 	if err != nil {
 		log.Fatalf("Mirror Connection Failed: %v\n(Check if webcam is connected and not used by another app)", err)
