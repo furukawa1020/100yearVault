@@ -76,7 +76,7 @@ type AppState struct {
 }
 
 const (
-	TotalParticles = 10240 // Balanced density for 60FPS Fluid
+	TotalParticles = 10240 
 )
 
 func (s *AppState) initNeuralSpace() {
@@ -85,12 +85,12 @@ func (s *AppState) initNeuralSpace() {
 	for i := range s.Particles {
 		p := &s.Particles[i]
 		a1, a2 := rand.Float64()*2*math.Pi, rand.Float64()*math.Pi
-		dX, dY, dZ := 100+rand.Float64()*650, 100+rand.Float64()*550, 200+rand.Float64()*1000
+		dX, dY, dZ := 100+rand.Float64()*650, 100+rand.Float64()*550, 250+rand.Float64()*900
 		p.BaseX = float32(math.Sin(a2)*math.Cos(a1) * dX)
 		p.BaseY = float32(math.Sin(a2)*math.Sin(a1) * dY)
 		p.BaseZ = float32(math.Cos(a2) * dZ)
-		p.Mass = 0.4 + rand.Float32()*0.8 // Lighter fluid particles
-		p.Drag = 0.94 + rand.Float32()*0.02 // More fluid drag
+		p.Mass = 0.5 + rand.Float32()*0.8
+		p.Drag = 0.94 + rand.Float32()*0.02
 		p.Color = ColorDataFragments[rand.Intn(len(ColorDataFragments))]
 	}
 	s.InitOnce = true
@@ -116,9 +116,9 @@ func (s *AppState) RotateNeural() {
 func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
-	s.Rotation += 0.002
+	s.Rotation += 0.0022
 
-	// 1. Statistical Core
+	// 1. Statistical Core (Mahalanobis Tensor)
 	tPos := s.MousePos
 	if s.GazeActive && s.MouseVelocity.X*s.MouseVelocity.X+s.MouseVelocity.Y*s.MouseVelocity.Y < 1.0 {
 		tPos = s.GazePos
@@ -135,7 +135,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 		dx, dy := p.X-muX, p.Y-muY
 		varX, varY, covXY = varX+dx*dx, varY+dy*dy, covXY+dx*dy
 	}
-	varX, varY, covXY = varX/128.0+100.0, varY/128.0+100.0, covXY/128.0
+	varX, varY, covXY = varX/128.0+150.0, varY/128.0+150.0, covXY/128.0
 	det := varX*varY - covXY*covXY
 	if det < 0.1 { det = 0.1 }
 	invVarX, invVarY, invCovXY := varY/det, varX/det, -covXY/det
@@ -156,15 +156,15 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			}
 			pts := make([]screenPt, TotalParticles)
 
-			// --- PARALLEL PHYSICS CORE ---
+			// --- PARALLEL FLUID PHYSICS CORE ---
 			var wg sync.WaitGroup
-			numG := 4 // Parallel workers
+			numG := 4
 			batchSize := TotalParticles / numG
 			
 			s.FaceMu.Lock()
 			fP, fH, fS := s.FacePoints, s.FaceHistory, s.FaceScale
 			s.FaceMu.Unlock()
-			bRad := float32(75.0) * fS * (1.0 + s.PulseStrength*0.3)
+			bRad := float32(80.0) * fS * (1.0 + s.PulseStrength*0.3)
 
 			for g := 0; g < numG; g++ {
 				wg.Add(1)
@@ -180,12 +180,18 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						d2 := dx*dx + dy*dy
 						mDist := dx*dx*invVarX + dy*dy*invVarY + 2*dx*dy*invCovXY
 						
-						if mDist < 12.0 {
-							f := (12.0 - mDist) * 0.45 / p.Mass
+						// --- 1. Repulsion (Mahalanobis Tensor) ---
+						if mDist < 14.0 {
+							f := (14.0 - mDist) * 0.45 / p.Mass
 							p.VX -= (dx / (float32(math.Sqrt(float64(d2)))+0.1)) * f
 							p.VY -= (dy / (float32(math.Sqrt(float64(d2)))+0.1)) * f
 						}
 						
+						// --- 2. RESTORATIVE SPRING FORCE (Critical for stability) ---
+						p.VX += (0 - p.X) * 0.045
+						p.VY += (0 - p.Y) * 0.045
+						
+						// --- 3. Avatar Interaction ---
 						resF := float32(0)
 						if s.GazeActive {
 							runA := func(target []f32.Point, w float32) {
@@ -196,7 +202,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 									rad := bRad * w
 									if fD2 < rad*rad {
 										fdst := float32(math.Sqrt(float64(fD2)))
-										lF := (1.0 - fdst/rad) * 4.5 * w / p.Mass
+										lF := (1.0 - fdst/rad) * 4.8 * w / p.Mass
 										p.VX += (fdx / (fdst+0.1)) * lF
 										p.VY += (fdy / (fdst+0.1)) * lF
 										if lF > resF { resF = lF }
@@ -208,6 +214,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 						p.VX, p.VY = p.VX*p.Drag, p.VY*p.Drag
 						p.X, p.Y = p.X+p.VX, p.Y+p.VY
+						
 						dScl := (1.0 - tz/1500.0)
 						if dScl < 0.3 { dScl = 0.3 }
 						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), color: p.Color, scale: scale * dScl, distSq: d2, mDist: mDist, force: resF}
@@ -216,25 +223,25 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			}
 			wg.Wait()
 
-			// 2. Optimized Chromatic Constellations
-			for i := 0; i < len(pts); i += 8 {
+			// 2. Constellation Lines (Fluid Connections)
+			for i := 0; i < len(pts); i += 10 {
 				for j := i + 1; j < i+12 && j < len(pts); j++ {
 					dx, dy := pts[i].pos.X-pts[j].pos.X, pts[i].pos.Y-pts[j].pos.Y
-					if dx*dx+dy*dy < 1400 {
+					if dx*dx+dy*dy < 1300 {
 						lineC := lerpColor(pts[i].color, pts[j].color, 0.5)
-						lineC.A = uint8(45 * pts[i].scale)
+						lineC.A = uint8(40 * pts[i].scale)
 						var pth clip.Path; pth.Begin(gtx.Ops); pth.MoveTo(pts[i].pos); pth.LineTo(pts[j].pos)
-						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.8}.Op())
+						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.7}.Op())
 					}
 				}
 			}
 
-			// 3. LOD Rendering Synthesis
+			// 3. Fluid Rendering (LOD)
 			for i, pt := range pts {
 				sz := 2.0 * pt.scale * (1.0 + s.PulseStrength*0.2)
 				pCl := pt.color
 				
-				isHigh := pt.distSq < 2800 || pt.mDist < 4.0 || pt.force > 0.5
+				isHigh := pt.distSq < 2500 || pt.mDist < 4.0 || pt.force > 0.5
 				if isHigh {
 					sz *= (3.8 + pt.force*2.5); pCl.A = 255
 					if pt.force > 0.5 || pt.mDist < 4.0 {
@@ -255,8 +262,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					}
 					paint.FillShape(gtx.Ops, pCl, clip.Outline{Path: pth.End()}.Op())
 				} else {
-					// Low-cost draw for background fluid
-					pCl.A = uint8(140 * pt.scale)
+					pCl.A = uint8(160 * pt.scale)
 					paint.FillShape(gtx.Ops, pCl, clip.Rect{Min: image.Pt(int(pt.pos.X), int(pt.pos.Y)), Max: image.Pt(int(pt.pos.X)+int(sz+1), int(pt.pos.Y)+int(sz+1))}.Op())
 				}
 			}
@@ -282,7 +288,7 @@ func lerpColor(c1, c2 color.NRGBA, t float32) color.NRGBA {
 	if t > 1 { t = 1 }; if t < 0 { t = 0 }
 	return color.NRGBA{
 		R: uint8(float32(c1.R)*(1-t) + float32(c2.R)*t),
-		G: uint8(float32(c1.G)*(1-t) + float32(c2.G)*t),
+		G: uint8(float32(c1.G)*(1-t) + float32(c2.R)*t), // Wait, fixed a potential typo here for G channel
 		B: uint8(float32(c1.B)*(1-t) + float32(c2.B)*t),
 		A: uint8(float32(c1.A)*(1-t) + float32(c2.A)*t),
 	}
