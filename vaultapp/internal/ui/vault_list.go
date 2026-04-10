@@ -12,8 +12,6 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
@@ -166,7 +164,6 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.InvV[0][0], s.InvV[1][1], s.InvV[0][1] = c2[1][1]/det2, c2[0][0]/det2, -c2[0][1]/det2
 
 	// Eigen-Axis Extraction (Simplified Power Iteration for 3D guide)
-	ax := f32.Pt(1, 0) // Approximation focus
 	s.EigenAxis[0] = f32.Pt(c3[0][0]/400, c3[0][1]/400)
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
@@ -220,17 +217,20 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						
 						resF := float32(0)
 						if s.GazeActive {
-							for _, fp := range fP {
-								if fp.X == 0 { continue }
-								fdx, fdy := (bSx+p.X)-fp.X, (bSy+p.Y)-fp.Y
-								fD2 := fdx*fdx + fdy*fdy; rad := bRad
-								if fD2 < rad*rad {
-									fdst := float32(math.Sqrt(float64(fD2)))
-									lF := (1.0 - fdst/rad) * 4.8 / p.Mass
-									p.VX += (fdx / (fdst+0.1)) * lF; p.VY += (fdy / (fdst+0.1)) * lF
-									if lF > resF { resF = lF }
+							runA := func(target []f32.Point, w float32) {
+								for _, fp := range target {
+									if fp.X == 0 { continue }
+									fdx, fdy := (bSx+p.X)-fp.X, (bSy+p.Y)-fp.Y
+									fD2 := fdx*fdx + fdy*fdy; rad := bRad * w
+									if fD2 < rad*rad {
+										fdst := float32(math.Sqrt(float64(fD2)))
+										lF := (1.0 - fdst/rad) * 4.8 * w / p.Mass
+										p.VX += (fdx / (fdst+0.1)) * lF; p.VY += (fdy / (fdst+0.1)) * lF
+										if lF > resF { resF = lF }
+									}
 								}
 							}
+							runA(fP, 1.0); for _, h := range fH { runA(h, 0.4) }
 						}
 
 						p.VX, p.VY = p.VX*p.Drag, p.VY*p.Drag
