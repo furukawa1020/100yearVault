@@ -70,13 +70,18 @@ type AppState struct {
 	Ritual        RitualState
 }
 
+const (
+	TotalParticles = 16384 // DRASTIC BOOST FOR DENSITY
+)
+
 func (s *AppState) initNeuralSpace() {
 	if s.InitOnce { return }
-	s.Particles = make([]Particle, 4096)
+	s.Particles = make([]Particle, TotalParticles)
 	for i := range s.Particles {
 		p := &s.Particles[i]
 		a1, a2 := rand.Float64()*2*math.Pi, rand.Float64()*math.Pi
-		dX, dY, dZ := 150+rand.Float64()*450, 100+rand.Float64()*300, 200+rand.Float64()*600
+		// Spread logic refined for better screen coverage
+		dX, dY, dZ := 100+rand.Float64()*600, 100+rand.Float64()*500, 200+rand.Float64()*1000
 		p.BaseX = float32(math.Sin(a2)*math.Cos(a1) * dX)
 		p.BaseY = float32(math.Sin(a2)*math.Sin(a1) * dY)
 		p.BaseZ = float32(math.Cos(a2) * dZ)
@@ -93,11 +98,11 @@ func (s *AppState) RotateNeural() {
 		p, m := &s.Particles[i], s.Memories[i%num]
 		hash := float32(0)
 		for _, c := range m.ID { hash += float32(c) }
-		a, d := float64(hash*0.1), 200.0+math.Mod(float64(hash), 300.0)
-		spr := 40.0 + math.Mod(float64(hash), 60.0)
+		a, d := float64(hash*0.1), 200.0+math.Mod(float64(hash), 400.0)
+		spr := 60.0 + math.Mod(float64(hash), 100.0)
 		p.BaseX = float32(math.Cos(a)*d) + float32((rand.Float64()-0.5)*spr)
 		p.BaseY = float32(math.Sin(a)*d) + float32((rand.Float64()-0.5)*spr)
-		p.BaseZ = float32(math.Sin(a*0.5)*100.0) + float32((rand.Float64()-0.5)*spr)
+		p.BaseZ = float32(math.Sin(a*0.5)*150.0) + float32((rand.Float64()-0.5)*spr)
 		if m.Aura == vault.StateRadiant { p.Color = color.NRGBA{255, 255, 200, 255} }
 	}
 }
@@ -105,7 +110,7 @@ func (s *AppState) RotateNeural() {
 func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
-	s.Rotation += 0.003 // Preserve slow galaxy rotation
+	s.Rotation += 0.002 // Slow, majestic rotation
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
@@ -142,8 +147,6 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 			for i := range s.Particles {
 				p := &s.Particles[i]
-				
-				// --- RESTORED: Galaxy Orbit Calculation ---
 				tx := p.BaseX*cosR - p.BaseZ*sinR
 				ty := p.BaseY
 				tz := p.BaseX*sinR + p.BaseZ*cosR
@@ -157,15 +160,18 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					du, dn := dx*uX+dy*uY, dx*nX+dy*nY
 					mahaD2 := (du*du)/b2 + (dn*dn)/a2
 					if mahaD2 < 1.0 {
-						f := (1.0 - mahaD2) * speed * 2.5
+						f := (1.0 - mahaD2) * speed * 2.8
 						px, py := nX, nY
 						if dn < 0 { px, py = -nX, -nY }
 						p.VX, p.VY = p.VX+px*f, p.VY+py*f
 					}
 				}
-				p.VX, p.VY = p.VX*0.94, p.VY*0.94
+				p.VX, p.VY = p.VX*0.93, p.VY*0.93
 				p.X, p.Y = p.X+p.VX, p.Y+p.VY
-				dScl := (1.0 - tz/1200.0)
+				
+				// Visibility Adjustment: Ensure distant particles stay visible
+				dScl := (1.0 - tz/1500.0)
+				if dScl < 0.3 { dScl = 0.3 } 
 				pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), color: p.Color, scale: scale * dScl, distSq: d2}
 				
 				resF := float32(0)
@@ -173,7 +179,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					s.FaceMu.Lock()
 					fP, fH, fS := s.FacePoints, s.FaceHistory, s.FaceScale
 					s.FaceMu.Unlock()
-					bRad := float32(70.0) * fS * (1.0 + s.PulseStrength*0.3)
+					bRad := float32(75.0) * fS * (1.0 + s.PulseStrength*0.3)
 					runA := func(target []f32.Point, w float32) {
 						for _, fp := range target {
 							if fp.X == 0 { continue }
@@ -182,7 +188,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 							rad := bRad * w
 							if fD2 < rad*rad {
 								fdst := float32(math.Sqrt(float64(fD2)))
-								lF := (1.0 - fdst/rad) * 4.0 * w
+								lF := (1.0 - fdst/rad) * 4.5 * w
 								p.VX += (fdx / (fdst+0.1)) * lF
 								p.VY += (fdy / (fdst+0.1)) * lF
 								if lF > resF { resF = lF }
@@ -194,34 +200,39 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				pts[i].force = resF
 			}
 
-			// 2. Chromatic Constellations (Density++)
-			for i := 0; i < len(pts); i += 4 {
-				for j := i + 1; j < i+15 && j < len(pts); j++ {
+			// 2. Chromatic Constellations (High Sampling Density for 16k)
+			for i := 0; i < len(pts); i += 6 {
+				for j := i + 1; j < i+18 && j < len(pts); j++ {
 					dx, dy := pts[i].pos.X-pts[j].pos.X, pts[i].pos.Y-pts[j].pos.Y
-					if dx*dx+dy*dy < 1200 {
+					if dx*dx+dy*dy < 1600 { // Braoder threshold
 						lineC := lerpColor(pts[i].color, pts[j].color, 0.5)
-						lineC.A = uint8(40 * pts[i].scale)
+						lineC.A = uint8(50 * pts[i].scale)
 						var pth clip.Path; pth.Begin(gtx.Ops); pth.MoveTo(pts[i].pos); pth.LineTo(pts[j].pos)
-						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.8}.Op())
+						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.9}.Op())
 					}
 				}
 			}
 
-			// 3. Chromatic Material Synthesis
+			// 3. Chromatic Material Synthesis (Brighter & Larger)
 			for i, pt := range pts {
-				sz := 1.5 * pt.scale * (1.0 + s.PulseStrength*0.2)
+				// Base size boost to ensure 16k looks full
+				sz := 2.0 * pt.scale * (1.0 + s.PulseStrength*0.2)
+				if sz < 0.8 { sz = 0.8 } // Minimum visibility
 				pCl := pt.color
-				if pt.distSq < 2500 || pt.force > 0.5 {
-					sz *= (3.5 + pt.force*2.0)
+				
+				if pt.distSq < 3000 || pt.force > 0.5 {
+					sz *= (3.8 + pt.force*2.5)
 					if pt.force > 0.5 {
 						ripC := ColorPrimary; if i%2 == 0 { ripC = ColorSecondary }
-						pCl = lerpColor(pCl, ripC, pt.force*0.5)
+						pCl = lerpColor(pCl, ripC, pt.force*0.6)
 					}
 					pCl.A = 255
-					if pt.distSq < 2500 { pCl = lerpColor(pCl, ColorQuaternary, 0.6) }
+					if pt.distSq < 3000 { pCl = lerpColor(pCl, ColorQuaternary, 0.7) }
 				} else {
-					sh := uint8(math.Sin(float64(s.FrameCount)*0.1+float64(i)*0.01) * 30)
-					pCl.A = uint8(math.Max(0, math.Min(255, float64(180*pt.scale)+float64(sh))))
+					shim := uint8(math.Sin(float64(s.FrameCount)*0.1+float64(i)*0.01) * 40)
+					// Brightness Curve Adjustment
+					alpha := float64(220*pt.scale) + float64(shim)
+					pCl.A = uint8(math.Max(40, math.Min(255, alpha))) // Higher base alpha
 				}
 				var pth clip.Path; pth.Begin(gtx.Ops); sx, sy := pt.pos.X, pt.pos.Y
 				if i%17 == 0 { // Glyph
