@@ -128,7 +128,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.FrameCount++
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		// Background (No interactive handling here, main.go will do it)
+		// Background
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
 			return layout.Dimensions{Size: gtx.Constraints.Max}
@@ -138,37 +138,17 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 			focalLength := float32(1000) 
-			s.NeuralMemory = nil 
 			
-			// --- Frame Velocity Calculation ---
-			// We calculate velocity here so it gracefully decays to 0 when mouse stops.
+			// Interaction Physics (Unchanged from existing version)
 			vX := s.MousePos.X - s.PrevMousePos.X
 			vY := s.MousePos.Y - s.PrevMousePos.Y
-			// Exponential moving average for velocity to stabilize interactions
 			s.MouseVelocity.X = s.MouseVelocity.X*0.7 + vX*0.3
 			s.MouseVelocity.Y = s.MouseVelocity.Y*0.7 + vY*0.3
 			s.PrevMousePos = s.MousePos
 
-			// --- Target Tracking Synthesis ---
-			// We determine the active pointer: Mouse takes priority if moving, otherwise Gaze.
 			targetPos := s.MousePos
-			targetVel := s.MouseVelocity
-
 			if s.GazeActive {
-				// If Gaze is active and mouse is relatively still, let gaze take over
 				mouseActiveSpeedSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
-				if mouseActiveSpeedSq < 1.0 { // Mouse is parked
-					targetPos = s.GazePos
-					targetVel = s.GazeVelocity
-				}
-			}
-
-			velSq := targetVel.X*targetVel.X + targetVel.Y*targetVel.Y
-			speed := float32(math.Sqrt(float64(velSq)))
-			
-			// Vector normalization for Mahalanobis field
-			uX, uY := float32(0), float32(0)
-			if speed > 0.1 {
 				uX = targetVel.X / speed
 				uY = targetVel.Y / speed
 			}
