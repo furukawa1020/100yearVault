@@ -137,9 +137,9 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 		// 3D Galaxy Layer
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
-			focalLength := float32(1000) 
-			
-			// Interaction Physics (Unchanged from existing version)
+			focalLength := float32(1000)
+
+			// 1. Interaction State & Physics
 			vX := s.MousePos.X - s.PrevMousePos.X
 			vY := s.MousePos.Y - s.PrevMousePos.Y
 			s.MouseVelocity.X = s.MouseVelocity.X*0.7 + vX*0.3
@@ -147,83 +147,49 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			s.PrevMousePos = s.MousePos
 
 			targetPos := s.MousePos
+			targetVel := s.MouseVelocity
 			if s.GazeActive {
 				mouseActiveSpeedSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
+				if mouseActiveSpeedSq < 1.0 { 
+					targetPos = s.GazePos 
+					targetVel = s.GazeVelocity
+				}
+			}
+			
+			velSq := targetVel.X*targetVel.X + targetVel.Y*targetVel.Y
+			speed := float32(math.Sqrt(float64(velSq)))
+			uX, uY := float32(0), float32(0)
+			if speed > 0.1 {
 				uX = targetVel.X / speed
 				uY = targetVel.Y / speed
 			}
+			nX, nY := -uY, uX
+			a2, b2 := float32(6400.0), float32(6400.0)+speed*speed*50.0
 
-			// Mahalanobis constants
-			// n is perpendicular to u
-			nX := -uY
-			nY := uX
-
-			// Minor/Major axis squares
-			// Base radius is 80 (distSq 6400). Stretch along u axis based on speed.
-			a2 := float32(6400.0) 
-			b2 := float32(6400.0) + speed*speed*50.0 
-			
-			// Depth-based modifications (Z-Axis Interaction)
-			depthScale := s.FaceScale
-			if depthScale < 0.1 { depthScale = 1.0 } // Default fallback
-			a2 *= depthScale
-			b2 *= depthScale
-
-			closestDistSq := float32(math.MaxFloat32)
+			type screenPoint struct {
+				pos    f32.Point
+				color  color.NRGBA
+				scale  float32
+				force  float32
+				distSq float32
+			}
+			points := make([]screenPoint, len(s.Particles))
 
 			for i := range s.Particles {
 				p := &s.Particles[i]
-				rot := float64(s.Rotation)
-				sinR, cosR := float32(math.Sin(rot)), float32(math.Cos(rot))
+				scale := focalLength / (focalLength + p.Z)
+				baseSx := center.X + p.X*scale
+				baseSy := center.Y + p.Y*scale
 				
-				// 1. Base analytic rotation (Galaxy Orbit)
-				tx := p.BaseX*cosR - p.BaseZ*sinR
-				tz := p.BaseX*sinR + p.BaseZ*cosR
-				ty := p.BaseY
-				
-				scale := focalLength / (focalLength + tz)
-				if tz < -focalLength+50 { continue }
-
-				baseSx := center.X + tx*scale
-				baseSy := center.Y + ty*scale
-
-				// 2. Spring Physics (Restoring force to base position)
-				p.VX *= 0.85 // Friction
-				p.VY *= 0.85 // Friction
-				p.X += (0 - p.X) * 0.05 // Spring towards 0 local displacement
-				p.Y += (0 - p.Y) * 0.05
-
-				// 3. Fluid Repulsion (Mahalanobis Space)
-				// Primary interaction point (Mouse or Gaze Center)
-				dx := baseSx + p.X - targetPos.X
-				dy := baseSy + p.Y - targetPos.Y
+				dx := targetPos.X - baseSx
+				dy := targetPos.Y - baseSy
 				euclidDistSq := dx*dx + dy*dy
-
-				if euclidDistSq < closestDistSq {
-					closestDistSq = euclidDistSq
-				}
-
+				
 				if speed > 0.1 {
-					du := dx*uX + dy*uY
-					dn := dx*nX + dy*nY
+					du, dn := dx*uX+dy*uY, dx*nX+dy*nY
 					mahaD2 := (du*du)/b2 + (dn*dn)/a2
-
 					if mahaD2 < 1.0 {
 						force := (1.0 - mahaD2) * speed * 2.0
-						pushDirX, pushDirY := nX, nY
-						if dn < 0 { pushDirX, pushDirY = -nX, -nY }
-						p.VX += pushDirX * force * 0.5
-						p.VY += pushDirY * force * 0.5
-						p.VX += uX * force * 0.2
-						p.VY += uY * force * 0.2
-				
-				depthScale := (1.0 - p.Z/1000.0)
-				repelRadius := float32(180.0) * depthScale
-				
-				if euclidDistSq < repelRadius*repelRadius {
-					dist := float32(math.Sqrt(float64(euclidDistSq)))
-					if dist < 0.1 { dist = 0.1 }
-					force := (1.0 - dist/repelRadius) * 2.5
 					p.VX -= (dx / dist) * force
 					p.VY -= (dy / dist) * force
 				}
