@@ -243,7 +243,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				paint.FillShape(gtx.Ops, pCl, clip.Ellipse{
 					Min: image.Pt(int(pt.pos.X-sz), int(pt.pos.Y-sz)),
 					Max: image.Pt(int(pt.pos.X+sz), int(pt.pos.Y+sz)),
-				}.Op())
+				}.Op(gtx.Ops))
 			}
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
