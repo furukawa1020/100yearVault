@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"math"
 
 	"gioui.org/app"
 	"gioui.org/io/event"
@@ -65,6 +66,12 @@ func loop(w *app.Window) error {
 		SelectBtns: make([]widget.Clickable, len(memories)),
 	}
 	state.Compose.UnlockDays.SetText("36500")
+	
+	// Initialize Face History for Kinetic Echoes
+	state.FaceHistory = make([][]f32.Point, 8)
+	for i := range state.FaceHistory {
+		state.FaceHistory[i] = make([]f32.Point, 4)
+	}
 
 	state.RotateNeural()
 
@@ -460,9 +467,24 @@ func startWebcamGazeTracking(state *ui.AppState) {
 				vy := targetY - state.GazePos.Y
 				
 				state.FaceMu.Lock()
+				// Shift history (Circular buffer style)
+				for i := len(state.FaceHistory) - 1; i > 0; i-- {
+					copy(state.FaceHistory[i], state.FaceHistory[i-1])
+				}
+				copy(state.FaceHistory[0], state.FacePoints)
+
 				state.GazeVelocity.X = state.GazeVelocity.X*0.6 + vx*0.4
 				state.GazeVelocity.Y = state.GazeVelocity.Y*0.6 + vy*0.4
 				
+				// Pulse Detection: Rapid head movement
+				speed := float32(math.Sqrt(float64(vx*vx + vy*vy)))
+				if speed > 20 { 
+					state.PulseStrength = state.PulseStrength*0.8 + (speed/50.0)*0.2
+					if state.PulseStrength > 1.5 { state.PulseStrength = 1.5 }
+				} else {
+					state.PulseStrength *= 0.95
+				}
+
 				state.GazePos.X += vx * 0.35 // Snappier tracking
 				state.GazePos.Y += vy * 0.35
 				
