@@ -214,27 +214,22 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					fScale := s.FaceScale
 					s.FaceMu.Unlock()
 
-					baseRadius := float32(60.0) * fScale * (1.0 + s.PulseStrength*0.3)
-					checkAvatar := func(pts []f32.Point, weight float32) {
-						for idx, fp := range pts {
-							if fp.X == 0 && fp.Y == 0 { continue }
-							fdx := points[i].pos.X - fp.X
-							fdy := points[i].pos.Y - fp.Y
+					bRad := float32(60.0) * fScale * (1.0 + s.PulseStrength*0.3)
+					apply := func(pts []f32.Point, w float32) {
+						for _, fp := range pts {
+							if fp.X == 0 { continue }
+							fdx, fdy := points[i].pos.X-fp.X, points[i].pos.Y-fp.Y
 							fDistSq := fdx*fdx + fdy*fdy
-							radius := baseRadius * weight
-							if fDistSq < radius*radius {
+							rad := bRad * w
+							if fDistSq < rad*rad {
 								fdist := float32(math.Sqrt(float64(fDistSq)))
-								if fdist < 0.1 { fdist = 0.1 }
-								localForce := (1.0 - fdist/radius) * 3.5 * weight
-								p.VX += (fdx / fdist) * localForce
-								p.VY += (fdy / fdist) * localForce
-								if localForce > avatarForce { avatarForce = localForce }
+								localF := (1.0 - fdist/rad) * 3.5 * w
+								p.VX += (fdx / (fdist + 0.1)) * localF
+								p.VY += (fdy / (fdist + 0.1)) * localF
+								if localF > avatarF { avatarF = localF }
 							}
 						}
 					}
-					checkAvatar(fPoints, 1.0)
-					for _, hp := range fHistory { checkAvatar(hp, 0.4) }
-				}
 				points[i].force = avatarForce
 			}
 
