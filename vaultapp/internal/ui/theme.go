@@ -9,26 +9,27 @@ import (
 )
 
 var (
-	ColorBackground  = color.NRGBA{R: 2, G: 2, B: 4, A: 255}      // The Cold Void (Near Black)
-	ColorSurface     = color.NRGBA{R: 0, G: 0, B: 0, A: 255}      // Absolute Stasis
-	ColorSurfaceHigh = color.NRGBA{R: 15, G: 15, B: 20, A: 255}   // Monolith Edge
-	ColorPrimary     = color.NRGBA{R: 212, G: 175, B: 55, A: 255} // Alchemy Gold
-	ColorSecondary   = color.NRGBA{R: 255, G: 255, B: 255, A: 255} // Pure Logic (White)
-	ColorTertiary    = color.NRGBA{R: 212, G: 175, B: 55, A: 200} // Dim Gold
-	ColorQuaternary  = color.NRGBA{R: 255, G: 245, B: 200, A: 255} // Brilliant Aura (Sunlight)
-	ColorPrimaryDim  = color.NRGBA{R: 80, G: 65, B: 20, A: 255}   // Oxidized Gold
+	ColorBackground  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}      // Absolute Void
+	ColorSurface     = color.NRGBA{R: 5, G: 5, B: 10, A: 255}     // Monolith Surface
+	ColorSurfaceHigh = color.NRGBA{R: 20, G: 20, B: 30, A: 255}   // High Resolution
+	ColorPrimary     = color.NRGBA{R: 0, G: 255, B: 255, A: 255} // Neo Cyan
+	ColorSecondary   = color.NRGBA{R: 255, G: 0, B: 255, A: 255} // Vivid Magenta
+	ColorTertiary    = color.NRGBA{R: 0, G: 255, B: 150, A: 255} // Electric Green
+	ColorQuaternary  = color.NRGBA{R: 255, G: 200, B: 0, A: 255} // Solar Gold
+	ColorPrimaryDim  = color.NRGBA{R: 0, G: 120, B: 150, A: 255} 
 	
 	ColorDataFragments = []color.NRGBA{
-		{R: 212, G: 175, B: 55, A: 255},  // Gold
+		{R: 0, G: 255, B: 255, A: 255},   // Cyan
+		{R: 255, G: 0, B: 255, A: 255},   // Magenta
+		{R: 0, G: 255, B: 150, A: 255},   // Green
+		{R: 255, G: 200, B: 0, A: 255},   // Gold
 		{R: 255, G: 255, B: 255, A: 255}, // White
-		{R: 180, G: 150, B: 40, A: 255},  // Bronze
-		{R: 255, G: 250, B: 240, A: 255}, // Ivory
 	}
 
-	ColorText    = color.NRGBA{R: 212, G: 175, B: 55, A: 255} // Golden Script
-	ColorTextDim = color.NRGBA{R: 80, G: 65, B: 20, A: 255}    // Fading Inscription
+	ColorText    = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	ColorTextDim = color.NRGBA{R: 0, G: 180, B: 200, A: 255}
 	ColorLocked  = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
-	ColorDanger  = color.NRGBA{R: 150, G: 0, B: 0, A: 255}    // Blood/Sacrifice Red
+	ColorDanger  = color.NRGBA{R: 255, G: 0, B: 0, A: 255}
 )
 
 func NewVaultTheme(fontPath string) *material.Theme {
