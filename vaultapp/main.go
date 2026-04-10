@@ -544,7 +544,7 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		}
 		release()
 		
-		// Prevent CPU hogging (Face detection is heavy)
-		time.Sleep(20 * time.Millisecond)
+		// Prevent CPU hogging
+		time.Sleep(30 * time.Millisecond)
 	}
 }
