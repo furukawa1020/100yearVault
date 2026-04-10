@@ -132,167 +132,120 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 
-		// 3D Galaxy Layer
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 			focalLength := float32(1000)
 
-			// 1. Interaction State & Physics
 			vX := s.MousePos.X - s.PrevMousePos.X
 			vY := s.MousePos.Y - s.PrevMousePos.Y
 			s.MouseVelocity.X = s.MouseVelocity.X*0.7 + vX*0.3
 			s.MouseVelocity.Y = s.MouseVelocity.Y*0.7 + vY*0.3
 			s.PrevMousePos = s.MousePos
 
-			targetPos := s.MousePos
-			targetVel := s.MouseVelocity
+			targetPos, targetVel := s.MousePos, s.MouseVelocity
 			if s.GazeActive {
-				mouseActiveSpeedSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
-				if mouseActiveSpeedSq < 1.0 { 
-					targetPos = s.GazePos 
-					targetVel = s.GazeVelocity
-				}
+				mSpeedSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
+				if mSpeedSq < 1.0 { targetPos, targetVel = s.GazePos, s.GazeVelocity }
 			}
 			
 			velSq := targetVel.X*targetVel.X + targetVel.Y*targetVel.Y
 			speed := float32(math.Sqrt(float64(velSq)))
-			uX, uY := float32(0), float32(0)
-			if speed > 0.1 {
-				uX = targetVel.X / speed
-				uY = targetVel.Y / speed
-			}
+			uX, uY := float32(0.0), float32(0.0)
+			if speed > 0.1 { uX, uY = targetVel.X/speed, targetVel.Y/speed }
 			nX, nY := -uY, uX
 			a2, b2 := float32(6400.0), float32(6400.0)+speed*speed*50.0
 
 			type screenPoint struct {
-				pos    f32.Point
-				color  color.NRGBA
-				scale  float32
-				force  float32
-				distSq float32
+				pos f32.Point; color color.NRGBA; scale float32; force float32; distSq float32
 			}
 			points := make([]screenPoint, len(s.Particles))
 
 			for i := range s.Particles {
 				p := &s.Particles[i]
 				scale := focalLength / (focalLength + p.Z)
-				baseSx := center.X + p.X*scale
-				baseSy := center.Y + p.Y*scale
-				
-				dx := targetPos.X - baseSx
-				dy := targetPos.Y - baseSy
-				euclidDistSq := dx*dx + dy*dy
+				baseSx, baseSy := center.X + p.X*scale, center.Y + p.Y*scale
+				dx, dy := targetPos.X - baseSx, targetPos.Y - baseSy
+				euD2 := dx*dx + dy*dy
 				
 				if speed > 0.1 {
 					du, dn := dx*uX+dy*uY, dx*nX+dy*nY
 					mahaD2 := (du*du)/b2 + (dn*dn)/a2
 					if mahaD2 < 1.0 {
-						force := (1.0 - mahaD2) * speed * 2.0
+						f := (1.0 - mahaD2) * speed * 2.0
 						px, py := nX, nY
 						if dn < 0 { px, py = -nX, -nY }
-						p.VX += px * force * 0.5
-						p.VY += py * force * 0.5
+						p.VX, p.VY = p.VX + px*f*0.5, p.VY + py*f*0.5
 					}
 				}
 
-				p.VX *= 0.94
-				p.VY *= 0.94
-				p.X += p.VX
-				p.Y += p.VY
-
-				points[i].pos = f32.Pt(baseSx+p.X, baseSy+p.Y)
-				points[i].color = p.Color
-				points[i].distSq = euclidDistSq
-				points[i].scale = scale * depthScale
+				p.VX, p.VY = p.VX*0.94, p.VY*0.94
+				p.X, p.Y = p.X+p.VX, p.Y+p.VY
+				dScale := (1.0 - p.Z/1000.0)
+				points[i] = screenPoint{pos: f32.Pt(baseSx+p.X, baseSy+p.Y), color: p.Color, scale: scale * dScale, distSq: euD2}
 				
-				// Avatar Interaction
-				avatarForce := float32(0)
+				avatarF := float32(0)
 				if s.GazeActive {
 					s.FaceMu.Lock()
-					fPoints := s.FacePoints
-					fHistory := s.FaceHistory
-					fScale := s.FaceScale
+					fPts, fHis, fScl := s.FacePoints, s.FaceHistory, s.FaceScale
 					s.FaceMu.Unlock()
-
-					bRad := float32(60.0) * fScale * (1.0 + s.PulseStrength*0.3)
+					bRad := float32(60.0) * fScl * (1.0 + s.PulseStrength*0.3)
 					apply := func(pts []f32.Point, w float32) {
 						for _, fp := range pts {
 							if fp.X == 0 { continue }
 							fdx, fdy := points[i].pos.X-fp.X, points[i].pos.Y-fp.Y
-							fDistSq := fdx*fdx + fdy*fdy
+							fD2 := fdx*fdx + fdy*fdy
 							rad := bRad * w
-							if fDistSq < rad*rad {
-								fdist := float32(math.Sqrt(float64(fDistSq)))
+							if fD2 < rad*rad {
+								fdist := float32(math.Sqrt(float64(fD2)))
 								localF := (1.0 - fdist/rad) * 3.5 * w
-								p.VX += (fdx / (fdist + 0.1)) * localF
-								p.VY += (fdy / (fdist + 0.1)) * localF
+								p.VX += (fdx / (fdist+0.1)) * localF
+								p.VY += (fdy / (fdist+0.1)) * localF
 								if localF > avatarF { avatarF = localF }
 							}
 						}
 					}
-				points[i].force = avatarForce
+					apply(fPts, 1.0)
+					for _, h := range fHis { apply(h, 0.4) }
+				}
+				points[i].force = avatarF
 			}
 
-			// --- DRAWING: Constellations (The "Meaning" Web) ---
 			for i := 0; i < len(points); i += 4 {
 				for j := i + 1; j < i+15 && j < len(points); j++ {
 					dx, dy := points[i].pos.X-points[j].pos.X, points[i].pos.Y-points[j].pos.Y
 					if dx*dx+dy*dy < 1200 {
-						lineColor := ColorPrimary
-						lineColor.A = uint8(30 * points[i].scale)
-						var pth clip.Path
-						pth.Begin(gtx.Ops)
-						pth.MoveTo(points[i].pos)
-						pth.LineTo(points[j].pos)
-						paint.FillShape(gtx.Ops, lineColor, clip.Stroke{
-							Path:  pth.End(),
-							Width: 0.5,
-						}.Op())
+						lineC := ColorPrimary; lineC.A = uint8(30 * points[i].scale)
+						var pth clip.Path; pth.Begin(gtx.Ops); pth.MoveTo(points[i].pos); pth.LineTo(points[j].pos)
+						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.5}.Op())
 					}
 				}
 			}
 
-			// --- DRAWING: Fragments (The Solid Matter) ---
 			for i, pt := range points {
-				sx, sy := pt.pos.X, pt.pos.Y
-				pSize := 1.5 * pt.scale * (1.0 + s.PulseStrength*0.2)
-				pColor := pt.color
-				
-				if pt.distSq < 2500 || pt.force > 0.5 { 
-					pSize *= (3.5 + pt.force*2.0)
-					pColor.A = 255
-					if pt.distSq < 2500 { pColor = lerpColor(pColor, ColorQuaternary, 0.6) }
+				sz := 1.5 * pt.scale * (1.0 + s.PulseStrength*0.2)
+				pCl := pt.color
+				if pt.distSq < 2500 || pt.force > 0.5 {
+					sz *= (3.5 + pt.force*2.0); pCl.A = 255
+					if pt.distSq < 2500 { pCl = lerpColor(pCl, ColorQuaternary, 0.6) }
 				} else {
-					shimmer := uint8(math.Sin(float64(s.FrameCount)*0.1 + float64(i)*0.01) * 30)
-					pColor.A = uint8(math.Max(0, math.Min(255, float64(180*pt.scale)+float64(shimmer))))
+					sh := uint8(math.Sin(float64(s.FrameCount)*0.1+float64(i)*0.01) * 30)
+					pCl.A = uint8(math.Max(0, math.Min(255, float64(180*pt.scale)+float64(sh))))
 				}
-
-				var path clip.Path
-				path.Begin(gtx.Ops)
-				if i%17 == 0 { // Deep Semantic Glyph
-					path.MoveTo(f32.Pt(sx, sy))
-					path.LineTo(f32.Pt(sx+pSize, sy+pSize/2))
-					path.MoveTo(f32.Pt(sx+pSize/2, sy))
-					path.LineTo(f32.Pt(sx+pSize/2, sy+pSize))
-				} else if i%13 == 0 { // Crystalline Diamond
-					path.MoveTo(f32.Pt(sx+pSize/2, sy))
-					path.LineTo(f32.Pt(sx+pSize, sy+pSize/2))
-					path.LineTo(f32.Pt(sx+pSize/2, sy+pSize))
-					path.LineTo(f32.Pt(sx, sy+pSize/2))
-					path.Close()
-				} else { // Hard Edge Fragment
-					path.MoveTo(f32.Pt(sx, sy+pSize))
-					path.LineTo(f32.Pt(sx+pSize/2, sy))
-					path.LineTo(f32.Pt(sx+pSize, sy+pSize))
-					path.Close()
+				var pth clip.Path; pth.Begin(gtx.Ops); sx, sy := pt.pos.X, pt.pos.Y
+				if i%17 == 0 {
+					pth.MoveTo(f32.Pt(sx, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
+					pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz/2, sy+sz))
+				} else if i%13 == 0 {
+					pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
+					pth.LineTo(f32.Pt(sx+sz/2, sy+sz)); pth.LineTo(f32.Pt(sx, sy+sz/2)); pth.Close()
+				} else {
+					pth.MoveTo(f32.Pt(sx, sy+sz)); pth.LineTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz)); pth.Close()
 				}
-				paint.FillShape(gtx.Ops, pColor, clip.Outline{Path: path.End()}.Op())
+				paint.FillShape(gtx.Ops, pCl, clip.Outline{Path: pth.End()}.Op())
 			}
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 	)
-}
-
 func drawRawLabel(gtx layout.Context, th *material.Theme, txt string, size int, clr color.NRGBA) layout.Dimensions {
 	label := material.Label(th, unit.Sp(float32(size)), txt)
 	label.Color = clr
