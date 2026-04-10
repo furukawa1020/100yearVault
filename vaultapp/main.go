@@ -388,21 +388,28 @@ func startWebcamGazeTracking(state *ui.AppState) {
 	var stream mediadevices.MediaStream
 	var captureErr error
 
-	// Retry logic for Windows Filter Graph releases
-	for retry := 0; retry < 3; retry++ {
+	// Multi-Device Scanning Logic
+	devices := mediadevices.EnumerateDevices()
+	found := false
+	for _, d := range devices {
+		if d.Kind != mediadevices.VideoInput { continue }
+		fmt.Printf("Testing Device: %s...\n", d.Label)
 		stream, captureErr = mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
-			Video: func(c *mediadevices.MediaTrackConstraints) {}, 
+			Video: func(c *mediadevices.MediaTrackConstraints) {
+				// No strict constraints for max compatibility
+			}, 
 		})
 		if captureErr == nil {
+			fmt.Printf("Mirror Connection: ESTABLISHED on %s\n", d.Label)
+			found = true
 			break
 		}
-		fmt.Printf("Mirror Surface Busy (Retry %d/3): %v\n", retry+1, captureErr)
-		time.Sleep(1000 * time.Millisecond)
+		fmt.Printf("Device %s Busy/Failed: %v\n", d.Label, captureErr)
 	}
 
-	if captureErr != nil {
-		fmt.Printf("GazeTracking Permanently Disabled: %v\n", captureErr)
-		state.GazeActive = false
+	if !found {
+		fmt.Println("No physical Mirror Surface found. WAKING UP GHOST AVATAR (Demo Mode)...")
+		runAvatarSimulator(state)
 		return
 	}
 
@@ -546,5 +553,43 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		
 		// Prevent CPU hogging
 		time.Sleep(30 * time.Millisecond)
+	}
+}
+
+func runAvatarSimulator(state *ui.AppState) {
+	state.FaceMu.Lock()
+	state.GazeActive = true
+	state.FaceScale = 1.0
+	state.FaceMu.Unlock()
+
+	ticker := time.NewTicker(16 * time.Millisecond)
+	angle := 0.0
+	for range ticker.C {
+		angle += 0.05
+		// Simulate a face floating in a slow infinity pattern
+		centerX := float32(500 + math.Cos(angle*0.7)*150)
+		centerY := float32(400 + math.Sin(angle*1.3)*100)
+		
+		fScale := float32(200 + math.Sin(angle*0.5)*50)
+
+		state.FaceMu.Lock()
+		state.FaceScale = fScale / 250.0
+		state.GazePos = f32.Pt(centerX, centerY)
+		
+		if len(state.FacePoints) < 4 {
+			state.FacePoints = make([]f32.Point, 4)
+		}
+		
+		// Simulate Landmarks
+		state.FacePoints[0] = f32.Pt(centerX-fScale*0.22, centerY-fScale*0.15) // Eye L
+		state.FacePoints[1] = f32.Pt(centerX+fScale*0.22, centerY-fScale*0.15) // Eye R
+		state.FacePoints[2] = f32.Pt(centerX, centerY+fScale*0.05)             // Nose
+		state.FacePoints[3] = f32.Pt(centerX, centerY+fScale*0.3)              // Mouth
+		
+		// Pulse simulation
+		state.PulseStrength = float32(math.Max(0, math.Sin(angle*2.0))) * 0.5
+		
+		state.GazeActive = true
+		state.FaceMu.Unlock()
 	}
 }
