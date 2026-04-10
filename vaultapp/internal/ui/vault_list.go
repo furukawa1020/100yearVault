@@ -160,7 +160,9 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			pts := make([]screenPt, TotalParticles)
 
 			var wg sync.WaitGroup
-			numG, batchSize := 4, TotalParticles / numG
+			numG := 4
+			batchSize := TotalParticles / numG
+			
 			s.FaceMu.Lock(); fP, fH, fS := s.FacePoints, s.FaceHistory, s.FaceScale; s.FaceMu.Unlock()
 			bRad := float32(85.0) * fS * (1.0 + s.PulseStrength*0.3)
 
