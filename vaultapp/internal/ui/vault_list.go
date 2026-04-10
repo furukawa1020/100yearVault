@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"image/color"
 	"math"
 	"math/rand"
@@ -55,8 +56,8 @@ type AppState struct {
 	GazePos       f32.Point
 	GazeVelocity  f32.Point
 	FacePoints    []f32.Point
-	FaceHistory   [][]f32.Point // Added for trails [History][LandmarkID]
-	PulseStrength float32       // Added for resonant pulsing
+	FaceHistory   [][]f32.Point
+	PulseStrength float32
 	FaceScale     float32
 	GazeActive    bool
 	NeuralSurface widget.Clickable
