@@ -308,10 +308,11 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				p.X += p.VX
 				p.Y += p.VY
 
-				// Actual screen coordinates mapping including displacement
+				// 5. Drawing (The Monolithic Materialization)
+				// We transform the pixel into a material fragment.
 				sx := baseSx + p.X
 				sy := baseSy + p.Y
-
+				
 				pSize := 1.5 * scale * depthScale * (1.0 + s.PulseStrength*0.2)
 				shimmer := float32(math.Sin(float64(s.FrameCount)*0.1 + float64(i)*0.01)) * 30
 				
@@ -331,43 +332,6 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					s.NeuralMemory = s.Memories[i%len(s.Memories)]
 				}
 
-				rect := image.Rect(int(sx), int(sy), int(sx+float32(pSize)), int(sy+float32(pSize)))
-				paint.FillShape(gtx.Ops, pColor, clip.Rect(rect).Op())
-			}
-			return layout.Dimensions{Size: gtx.Constraints.Max}
-		}),
-
-		// HUD Layer
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(40)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return drawRawLabel(gtx, s.Theme, "NEURAL_MIRROR_CONNECTION_ESTABLISHED", 24, ColorPrimary)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								txt := fmt.Sprintf("DEBUG_COORD: (%.0f, %.0f) | SCAN: %v", s.MousePos.X, s.MousePos.Y, s.NeuralMemory != nil)
-								if s.NeuralMemory != nil {
-									txt = fmt.Sprintf("RESONANCE_LOCKED: %s (SYNC_READY)", s.NeuralMemory.Title)
-								}
-								return drawRawLabel(gtx, s.Theme, txt, 12, ColorPrimaryDim)
-							}),
-						)
-					})
-				}),
-				
-				layout.Flexed(1, layout.Spacer{}.Layout),
-
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(60)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								btn := material.Button(s.Theme, &s.NewVaultBtn, "RELEASE_NEW_MEMORY")
-								btn.Background = ColorPrimary
-								btn.Color = ColorBackground
-								btn.TextSize = unit.Sp(32)
-								btn.Inset = layout.Inset{Top: unit.Dp(30), Bottom: unit.Dp(30), Left: unit.Dp(60), Right: unit.Dp(60)}
 								return btn.Layout(gtx)
 							}),
 							layout.Flexed(1, layout.Spacer{}.Layout),
