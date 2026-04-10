@@ -24,7 +24,9 @@ func main() {
 				fmt.Printf("   !! FAILED: %v\n", err)
 			} else {
 				fmt.Printf("   ++ SUCCESS: Opened %s\n", d.Label)
-				stream.Close()
+				for _, t := range stream.GetTracks() {
+					t.Close()
+				}
 			}
 		}
 	}
