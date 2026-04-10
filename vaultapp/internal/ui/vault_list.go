@@ -185,31 +185,48 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				pts[i].force = resF
 			}
 
-			// 2. The Constellation Web (Density++)
+			// 2. The Chromatic Constellation Web
 			for i := 0; i < len(pts); i += 4 {
 				for j := i + 1; j < i+15 && j < len(pts); j++ {
 					dx, dy := pts[i].pos.X-pts[j].pos.X, pts[i].pos.Y-pts[j].pos.Y
 					if dx*dx+dy*dy < 1200 {
-						lC := ColorPrimary; lC.A = uint8(30 * pts[i].scale)
-						var pth clip.Path; pth.Begin(gtx.Ops); pth.MoveTo(pts[i].pos); pth.LineTo(pts[j].pos)
-						paint.FillShape(gtx.Ops, lC, clip.Stroke{Path: pth.End(), Width: 0.5}.Op())
+						// Blend the color of the two points for the connection
+						lineC := lerpColor(pts[i].color, pts[j].color, 0.5)
+						lineC.A = uint8(40 * pts[i].scale)
+						var pth clip.Path
+						pth.Begin(gtx.Ops)
+						pth.MoveTo(pts[i].pos)
+						pth.LineTo(pts[j].pos)
+						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.8}.Op())
 					}
 				}
 			}
 
-			// 3. Material Materialization
+			// 3. Chromatic Material Synthesis
 			for i, pt := range pts {
 				sz := 1.5 * pt.scale * (1.0 + s.PulseStrength*0.2)
 				pCl := pt.color
+				
+				// Interaction Resonance: Colors boil and brighten upon touch
 				if pt.distSq < 2500 || pt.force > 0.5 {
-					sz *= (3.5 + pt.force*2.0); pCl.A = 255
-					if pt.distSq < 2500 { pCl = lerpColor(pCl, ColorQuaternary, 0.6) }
+					sz *= (3.5 + pt.force*2.0)
+					if pt.force > 0.5 {
+						// Avatar Resonance: Shift towards Primary/Secondary depending on energy
+						rippleC := ColorPrimary
+						if i%2 == 0 { rippleC = ColorSecondary }
+						pCl = lerpColor(pCl, rippleC, pt.force*0.5)
+					}
+					pCl.A = 255
+					if pt.distSq < 2500 { 
+						pCl = lerpColor(pCl, ColorQuaternary, 0.6) // Interaction Flash (Gold)
+					}
 				} else {
 					sh := uint8(math.Sin(float64(s.FrameCount)*0.1+float64(i)*0.01) * 30)
 					pCl.A = uint8(math.Max(0, math.Min(255, float64(180*pt.scale)+float64(sh))))
 				}
+
 				var pth clip.Path; pth.Begin(gtx.Ops); sx, sy := pt.pos.X, pt.pos.Y
-				if i%17 == 0 { // Glyph Synthesis
+				if i%17 == 0 { // Glyph
 					pth.MoveTo(f32.Pt(sx, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
 					pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz/2, sy+sz))
 				} else if i%13 == 0 { // Diamond
