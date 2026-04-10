@@ -62,7 +62,7 @@ type AppState struct {
 	GazeActive    bool
 	NeuralSurface widget.Clickable
 	FrameCount    int
-	FaceMu        sync.Mutex // Added for thread-safe landmark updates
+	FaceMu        sync.Mutex
 
 	// Screen Navigation
 	CurrentScreen Screen
@@ -71,21 +71,15 @@ type AppState struct {
 }
 
 func (s *AppState) initNeuralSpace() {
-	if s.InitOnce {
-		return
-	}
+	if s.InitOnce { return }
 	s.Particles = make([]Particle, 4096)
 	for i := range s.Particles {
 		p := &s.Particles[i]
-		angle1 := rand.Float64() * 2 * math.Pi
-		angle2 := rand.Float64() * math.Pi
-		distX := 150 + rand.Float64()*450
-		distY := 100 + rand.Float64()*300
-		distZ := 200 + rand.Float64()*600
-		
-		p.BaseX = float32(math.Sin(angle2)*math.Cos(angle1) * distX)
-		p.BaseY = float32(math.Sin(angle2)*math.Sin(angle1) * distY)
-		p.BaseZ = float32(math.Cos(angle2) * distZ)
+		a1, a2 := rand.Float64()*2*math.Pi, rand.Float64()*math.Pi
+		dX, dY, dZ := 150+rand.Float64()*450, 100+rand.Float64()*300, 200+rand.Float64()*600
+		p.BaseX = float32(math.Sin(a2)*math.Cos(a1) * dX)
+		p.BaseY = float32(math.Sin(a2)*math.Sin(a1) * dY)
+		p.BaseZ = float32(math.Cos(a2) * dZ)
 		p.Color = ColorDataFragments[rand.Intn(len(ColorDataFragments))]
 	}
 	s.InitOnce = true
@@ -93,32 +87,18 @@ func (s *AppState) initNeuralSpace() {
 
 func (s *AppState) RotateNeural() {
 	s.initNeuralSpace()
-	
-	numMemories := len(s.Memories)
-	if numMemories == 0 { return }
-
+	num := len(s.Memories)
+	if num == 0 { return }
 	for i := range s.Particles {
-		p := &s.Particles[i]
-		m := s.Memories[i%numMemories]
-		
+		p, m := &s.Particles[i], s.Memories[i%num]
 		hash := float32(0)
 		for _, c := range m.ID { hash += float32(c) }
-		
-		angle := float64(hash * 0.1)
-		dist  := 200.0 + math.Mod(float64(hash), 300.0)
-		
-		targetX := float32(math.Cos(angle) * dist)
-		targetY := float32(math.Sin(angle) * dist)
-		targetZ := float32(math.Sin(angle*0.5) * 100.0)
-		
-		spread := 40.0 + math.Mod(float64(hash), 60.0)
-		p.BaseX = targetX + float32((rand.Float64()-0.5)*spread)
-		p.BaseY = targetY + float32((rand.Float64()-0.5)*spread)
-		p.BaseZ = targetZ + float32((rand.Float64()-0.5)*spread)
-		
-		if m.Aura == vault.StateRadiant {
-			p.Color = color.NRGBA{R: 255, G: 255, B: 200, A: 255} 
-		}
+		a, d := float64(hash*0.1), 200.0+math.Mod(float64(hash), 300.0)
+		spr := 40.0 + math.Mod(float64(hash), 60.0)
+		p.BaseX = float32(math.Cos(a)*d) + float32((rand.Float64()-0.5)*spr)
+		p.BaseY = float32(math.Sin(a)*d) + float32((rand.Float64()-0.5)*spr)
+		p.BaseZ = float32(math.Sin(a*0.5)*100.0) + float32((rand.Float64()-0.5)*spr)
+		if m.Aura == vault.StateRadiant { p.Color = color.NRGBA{255, 255, 200, 255} }
 	}
 }
 
@@ -136,37 +116,34 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 			focalLength := float32(1000)
 
-			vX := s.MousePos.X - s.PrevMousePos.X
-			vY := s.MousePos.Y - s.PrevMousePos.Y
-			s.MouseVelocity.X = s.MouseVelocity.X*0.7 + vX*0.3
-			s.MouseVelocity.Y = s.MouseVelocity.Y*0.7 + vY*0.3
+			// 1. Kinetic Synthesis
+			vX, vY := s.MousePos.X-s.PrevMousePos.X, s.MousePos.Y-s.PrevMousePos.Y
+			s.MouseVelocity.X, s.MouseVelocity.Y = s.MouseVelocity.X*0.7+vX*0.3, s.MouseVelocity.Y*0.7+vY*0.3
 			s.PrevMousePos = s.MousePos
-
-			targetPos, targetVel := s.MousePos, s.MouseVelocity
+			tPos, tVel := s.MousePos, s.MouseVelocity
 			if s.GazeActive {
-				mSpeedSq := s.MouseVelocity.X*s.MouseVelocity.X + s.MouseVelocity.Y*s.MouseVelocity.Y
-				if mSpeedSq < 1.0 { targetPos, targetVel = s.GazePos, s.GazeVelocity }
+				if s.MouseVelocity.X*s.MouseVelocity.X+s.MouseVelocity.Y*s.MouseVelocity.Y < 1.0 {
+					tPos, tVel = s.GazePos, s.GazeVelocity
+				}
 			}
-			
-			velSq := targetVel.X*targetVel.X + targetVel.Y*targetVel.Y
-			speed := float32(math.Sqrt(float64(velSq)))
+			vSq := tVel.X*tVel.X + tVel.Y*tVel.Y
+			speed := float32(math.Sqrt(float64(vSq)))
 			uX, uY := float32(0.0), float32(0.0)
-			if speed > 0.1 { uX, uY = targetVel.X/speed, targetVel.Y/speed }
+			if speed > 0.1 { uX, uY = tVel.X/speed, tVel.Y/speed }
 			nX, nY := -uY, uX
 			a2, b2 := float32(6400.0), float32(6400.0)+speed*speed*50.0
 
-			type screenPoint struct {
+			type screenPt struct {
 				pos f32.Point; color color.NRGBA; scale float32; force float32; distSq float32
 			}
-			points := make([]screenPoint, len(s.Particles))
+			pts := make([]screenPt, len(s.Particles))
 
 			for i := range s.Particles {
 				p := &s.Particles[i]
 				scale := focalLength / (focalLength + p.Z)
-				baseSx, baseSy := center.X + p.X*scale, center.Y + p.Y*scale
-				dx, dy := targetPos.X - baseSx, targetPos.Y - baseSy
-				euD2 := dx*dx + dy*dy
-				
+				bSx, bSy := center.X+p.X*scale, center.Y+p.Y*scale
+				dx, dy := tPos.X-bSx, tPos.Y-bSy
+				d2 := dx*dx + dy*dy
 				if speed > 0.1 {
 					du, dn := dx*uX+dy*uY, dx*nX+dy*nY
 					mahaD2 := (du*du)/b2 + (dn*dn)/a2
@@ -174,54 +151,54 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						f := (1.0 - mahaD2) * speed * 2.0
 						px, py := nX, nY
 						if dn < 0 { px, py = -nX, -nY }
-						p.VX, p.VY = p.VX + px*f*0.5, p.VY + py*f*0.5
+						p.VX, p.VY = p.VX+px*f*0.5, p.VY+py*f*0.5
 					}
 				}
-
 				p.VX, p.VY = p.VX*0.94, p.VY*0.94
 				p.X, p.Y = p.X+p.VX, p.Y+p.VY
-				dScale := (1.0 - p.Z/1000.0)
-				points[i] = screenPoint{pos: f32.Pt(baseSx+p.X, baseSy+p.Y), color: p.Color, scale: scale * dScale, distSq: euD2}
+				dScl := (1.0 - p.Z/1000.0)
+				pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), color: p.Color, scale: scale * dScl, distSq: d2}
 				
-				avatarF := float32(0)
+				resF := float32(0)
 				if s.GazeActive {
 					s.FaceMu.Lock()
-					fPts, fHis, fScl := s.FacePoints, s.FaceHistory, s.FaceScale
+					fP, fH, fS := s.FacePoints, s.FaceHistory, s.FaceScale
 					s.FaceMu.Unlock()
-					bRad := float32(60.0) * fScl * (1.0 + s.PulseStrength*0.3)
-					apply := func(pts []f32.Point, w float32) {
-						for _, fp := range pts {
+					bRad := float32(60.0) * fS * (1.0 + s.PulseStrength*0.3)
+					runA := func(target []f32.Point, w float32) {
+						for _, fp := range target {
 							if fp.X == 0 { continue }
-							fdx, fdy := points[i].pos.X-fp.X, points[i].pos.Y-fp.Y
+							fdx, fdy := pts[i].pos.X-fp.X, pts[i].pos.Y-fp.Y
 							fD2 := fdx*fdx + fdy*fdy
 							rad := bRad * w
 							if fD2 < rad*rad {
-								fdist := float32(math.Sqrt(float64(fD2)))
-								localF := (1.0 - fdist/rad) * 3.5 * w
-								p.VX += (fdx / (fdist+0.1)) * localF
-								p.VY += (fdy / (fdist+0.1)) * localF
-								if localF > avatarF { avatarF = localF }
+								fdst := float32(math.Sqrt(float64(fD2)))
+								lF := (1.0 - fdst/rad) * 3.5 * w
+								p.VX += (fdx / (fdst+0.1)) * lF
+								p.VY += (fdy / (fdst+0.1)) * lF
+								if lF > resF { resF = lF }
 							}
 						}
 					}
-					apply(fPts, 1.0)
-					for _, h := range fHis { apply(h, 0.4) }
+					runA(fP, 1.0); for _, h := range fH { runA(h, 0.4) }
 				}
-				points[i].force = avatarF
+				pts[i].force = resF
 			}
 
-			for i := 0; i < len(points); i += 4 {
-				for j := i + 1; j < i+15 && j < len(points); j++ {
-					dx, dy := points[i].pos.X-points[j].pos.X, points[i].pos.Y-points[j].pos.Y
+			// 2. The Constellation Web (Density++)
+			for i := 0; i < len(pts); i += 4 {
+				for j := i + 1; j < i+15 && j < len(pts); j++ {
+					dx, dy := pts[i].pos.X-pts[j].pos.X, pts[i].pos.Y-pts[j].pos.Y
 					if dx*dx+dy*dy < 1200 {
-						lineC := ColorPrimary; lineC.A = uint8(30 * points[i].scale)
-						var pth clip.Path; pth.Begin(gtx.Ops); pth.MoveTo(points[i].pos); pth.LineTo(points[j].pos)
-						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.5}.Op())
+						lC := ColorPrimary; lC.A = uint8(30 * pts[i].scale)
+						var pth clip.Path; pth.Begin(gtx.Ops); pth.MoveTo(pts[i].pos); pth.LineTo(pts[j].pos)
+						paint.FillShape(gtx.Ops, lC, clip.Stroke{Path: pth.End(), Width: 0.5}.Op())
 					}
 				}
 			}
 
-			for i, pt := range points {
+			// 3. Material Materialization
+			for i, pt := range pts {
 				sz := 1.5 * pt.scale * (1.0 + s.PulseStrength*0.2)
 				pCl := pt.color
 				if pt.distSq < 2500 || pt.force > 0.5 {
@@ -232,13 +209,13 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					pCl.A = uint8(math.Max(0, math.Min(255, float64(180*pt.scale)+float64(sh))))
 				}
 				var pth clip.Path; pth.Begin(gtx.Ops); sx, sy := pt.pos.X, pt.pos.Y
-				if i%17 == 0 {
+				if i%17 == 0 { // Glyph Synthesis
 					pth.MoveTo(f32.Pt(sx, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
 					pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz/2, sy+sz))
-				} else if i%13 == 0 {
+				} else if i%13 == 0 { // Diamond
 					pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
 					pth.LineTo(f32.Pt(sx+sz/2, sy+sz)); pth.LineTo(f32.Pt(sx, sy+sz/2)); pth.Close()
-				} else {
+				} else { // Fragment
 					pth.MoveTo(f32.Pt(sx, sy+sz)); pth.LineTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz)); pth.Close()
 				}
 				paint.FillShape(gtx.Ops, pCl, clip.Outline{Path: pth.End()}.Op())
@@ -246,6 +223,8 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 	)
+}
+
 func drawRawLabel(gtx layout.Context, th *material.Theme, txt string, size int, clr color.NRGBA) layout.Dimensions {
 	label := material.Label(th, unit.Sp(float32(size)), txt)
 	label.Color = clr
@@ -260,8 +239,7 @@ func drawBackground(ops *op.Ops, gtx layout.Context, c color.NRGBA) {
 }
 
 func lerpColor(c1, c2 color.NRGBA, t float32) color.NRGBA {
-	if t > 1 { t = 1 }
-	if t < 0 { t = 0 }
+	if t > 1 { t = 1 }; if t < 0 { t = 0 }
 	return color.NRGBA{
 		R: uint8(float32(c1.R)*(1-t) + float32(c2.R)*t),
 		G: uint8(float32(c1.G)*(1-t) + float32(c2.G)*t),
