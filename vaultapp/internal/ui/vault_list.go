@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-	"image"
 	"image/color"
 	"math"
 	"math/rand"
@@ -128,7 +126,6 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.FrameCount++
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-		// Background
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			paint.FillShape(gtx.Ops, ColorBackground, clip.Rect{Max: gtx.Constraints.Max}.Op())
 			return layout.Dimensions{Size: gtx.Constraints.Max}
