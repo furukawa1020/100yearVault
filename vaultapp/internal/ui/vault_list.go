@@ -32,7 +32,7 @@ type Particle struct {
 	BaseX, BaseY, BaseZ float32 
 	X, Y, Z             float32 
 	VX, VY, VZ          float32 
-	Mass, Drag          float32 // Advanced properties
+	Mass, Drag          float32
 	Color               color.NRGBA
 }
 
@@ -76,7 +76,7 @@ type AppState struct {
 }
 
 const (
-	TotalParticles = 16384 // Ultra High Density
+	TotalParticles = 10240 // Balanced density for 60FPS Fluid
 )
 
 func (s *AppState) initNeuralSpace() {
@@ -89,8 +89,8 @@ func (s *AppState) initNeuralSpace() {
 		p.BaseX = float32(math.Sin(a2)*math.Cos(a1) * dX)
 		p.BaseY = float32(math.Sin(a2)*math.Sin(a1) * dY)
 		p.BaseZ = float32(math.Cos(a2) * dZ)
-		p.Mass = 0.5 + rand.Float32()*2.0
-		p.Drag = 0.92 + rand.Float32()*0.06
+		p.Mass = 0.4 + rand.Float32()*0.8 // Lighter fluid particles
+		p.Drag = 0.94 + rand.Float32()*0.02 // More fluid drag
 		p.Color = ColorDataFragments[rand.Intn(len(ColorDataFragments))]
 	}
 	s.InitOnce = true
@@ -116,9 +116,9 @@ func (s *AppState) RotateNeural() {
 func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
-	s.Rotation += 0.0018
+	s.Rotation += 0.002
 
-	// --- 1. Statistical Context Calculation (Real Mahalanobis) ---
+	// 1. Statistical Core
 	tPos := s.MousePos
 	if s.GazeActive && s.MouseVelocity.X*s.MouseVelocity.X+s.MouseVelocity.Y*s.MouseVelocity.Y < 1.0 {
 		tPos = s.GazePos
@@ -127,35 +127,18 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.HistPtr = (s.HistPtr + 1) % len(s.InputHistory)
 
 	var muX, muY float32
-	for _, p := range s.InputHistory {
-		muX += p.X
-		muY += p.Y
-	}
-	muX /= float32(len(s.InputHistory))
-	muY /= float32(len(s.InputHistory))
+	for _, p := range s.InputHistory { muX, muY = muX+p.X, muY+p.Y }
+	muX, muY = muX/128.0, muY/128.0
 
 	var varX, varY, covXY float32
 	for _, p := range s.InputHistory {
 		dx, dy := p.X-muX, p.Y-muY
-		varX += dx * dx
-		varY += dy * dy
-		covXY += dx * dy
+		varX, varY, covXY = varX+dx*dx, varY+dy*dy, covXY+dx*dy
 	}
-	N := float32(len(s.InputHistory))
-	varX /= N
-	varY /= N
-	covXY /= N
-
-	// Add noise to stability (Singularity Protection)
-	varX += 100.0
-	varY += 100.0
-
-	// Matrix Inversion for 2x2 Covariance Sigma
+	varX, varY, covXY = varX/128.0+100.0, varY/128.0+100.0, covXY/128.0
 	det := varX*varY - covXY*covXY
 	if det < 0.1 { det = 0.1 }
-	invVarX := varY / det
-	invVarY := varX / det
-	invCovXY := -covXY / det
+	invVarX, invVarY, invCovXY := varY/det, varX/det, -covXY/det
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
@@ -171,106 +154,111 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			type screenPt struct {
 				pos f32.Point; color color.NRGBA; scale float32; force float32; distSq float32; mDist float32
 			}
-			pts := make([]screenPt, len(s.Particles))
+			pts := make([]screenPt, TotalParticles)
 
-			for i := range s.Particles {
-				p := &s.Particles[i]
-				tx := p.BaseX*cosR - p.BaseZ*sinR
-				ty, tz := p.BaseY, p.BaseX*sinR + p.BaseZ*cosR
-				
-				scale := focalLength / (focalLength + tz)
-				bSx, bSy := center.X + tx*scale, center.Y + ty*scale
-				
-				dx, dy := tPos.X-bSx, tPos.Y-bSy
-				// --- Real Mahalanobis Quadratic Form ---
-				d2 := dx*dx + dy*dy
-				mDist := dx*dx*invVarX + dy*dy*invVarY + 2*dx*dy*invCovXY
-				
-				if mDist < 12.0 { // Repel based on statistical distance
-					f := (12.0 - mDist) * 0.4 / p.Mass
-					p.VX -= (dx / (float32(math.Sqrt(float64(d2)))+0.1)) * f
-					p.VY -= (dy / (float32(math.Sqrt(float64(d2)))+0.1)) * f
-				}
-				
-				p.VX, p.VY = p.VX*p.Drag, p.VY*p.Drag
-				p.X, p.Y = p.X+p.VX, p.Y+p.VY
-				
-				dScl := (1.0 - tz/1500.0)
-				if dScl < 0.3 { dScl = 0.3 } 
-				pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), color: p.Color, scale: scale * dScl, distSq: d2, mDist: mDist}
-				
-				// Avatar High-Energy Interaction
-				resF := float32(0)
-				if s.GazeActive {
-					s.FaceMu.Lock()
-					fP, fH, fS := s.FacePoints, s.FaceHistory, s.FaceScale
-					s.FaceMu.Unlock()
-					bRad := float32(75.0) * fS * (1.0 + s.PulseStrength*0.3)
-					runA := func(target []f32.Point, w float32) {
-						for _, fp := range target {
-							if fp.X == 0 { continue }
-							fdx, fdy := pts[i].pos.X-fp.X, pts[i].pos.Y-fp.Y
-							fD2 := fdx*fdx + fdy*fdy
-							rad := bRad * w
-							if fD2 < rad*rad {
-								fdst := float32(math.Sqrt(float64(fD2)))
-								lF := (1.0 - fdst/rad) * 4.5 * w / p.Mass
-								p.VX += (fdx / (fdst+0.1)) * lF
-								p.VY += (fdy / (fdst+0.1)) * lF
-								if lF > resF { resF = lF }
-							}
+			// --- PARALLEL PHYSICS CORE ---
+			var wg sync.WaitGroup
+			numG := 4 // Parallel workers
+			batchSize := TotalParticles / numG
+			
+			s.FaceMu.Lock()
+			fP, fH, fS := s.FacePoints, s.FaceHistory, s.FaceScale
+			s.FaceMu.Unlock()
+			bRad := float32(75.0) * fS * (1.0 + s.PulseStrength*0.3)
+
+			for g := 0; g < numG; g++ {
+				wg.Add(1)
+				go func(start, end int) {
+					defer wg.Done()
+					for i := start; i < end; i++ {
+						p := &s.Particles[i]
+						tx, ty, tz := p.BaseX*cosR-p.BaseZ*sinR, p.BaseY, p.BaseX*sinR+p.BaseZ*cosR
+						
+						scale := focalLength / (focalLength + tz)
+						bSx, bSy := center.X+tx*scale, center.Y+ty*scale
+						dx, dy := tPos.X-bSx, tPos.Y-bSy
+						d2 := dx*dx + dy*dy
+						mDist := dx*dx*invVarX + dy*dy*invVarY + 2*dx*dy*invCovXY
+						
+						if mDist < 12.0 {
+							f := (12.0 - mDist) * 0.45 / p.Mass
+							p.VX -= (dx / (float32(math.Sqrt(float64(d2)))+0.1)) * f
+							p.VY -= (dy / (float32(math.Sqrt(float64(d2)))+0.1)) * f
 						}
-					}
-					runA(fP, 1.0); for _, h := range fH { runA(h, 0.4) }
-				}
-				pts[i].force = resF
-			}
+						
+						resF := float32(0)
+						if s.GazeActive {
+							runA := func(target []f32.Point, w float32) {
+								for _, fp := range target {
+									if fp.X == 0 { continue }
+									fdx, fdy := (bSx+p.X)-fp.X, (bSy+p.Y)-fp.Y
+									fD2 := fdx*fdx + fdy*fdy
+									rad := bRad * w
+									if fD2 < rad*rad {
+										fdst := float32(math.Sqrt(float64(fD2)))
+										lF := (1.0 - fdst/rad) * 4.5 * w / p.Mass
+										p.VX += (fdx / (fdst+0.1)) * lF
+										p.VY += (fdy / (fdst+0.1)) * lF
+										if lF > resF { resF = lF }
+									}
+								}
+							}
+							runA(fP, 1.0); for _, h := range fH { runA(h, 0.4) }
+						}
 
-			// 2. Chromatic Tensor Constellations
-			for i := 0; i < len(pts); i += 6 {
-				for j := i + 1; j < i+18 && j < len(pts); j++ {
+						p.VX, p.VY = p.VX*p.Drag, p.VY*p.Drag
+						p.X, p.Y = p.X+p.VX, p.Y+p.VY
+						dScl := (1.0 - tz/1500.0)
+						if dScl < 0.3 { dScl = 0.3 }
+						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), color: p.Color, scale: scale * dScl, distSq: d2, mDist: mDist, force: resF}
+					}
+				}(g*batchSize, (g+1)*batchSize)
+			}
+			wg.Wait()
+
+			// 2. Optimized Chromatic Constellations
+			for i := 0; i < len(pts); i += 8 {
+				for j := i + 1; j < i+12 && j < len(pts); j++ {
 					dx, dy := pts[i].pos.X-pts[j].pos.X, pts[i].pos.Y-pts[j].pos.Y
 					if dx*dx+dy*dy < 1400 {
 						lineC := lerpColor(pts[i].color, pts[j].color, 0.5)
-						// Lines stretch based on mahalanobis proximity
-						lineC.A = uint8(50 * pts[i].scale)
-						if pts[i].mDist < 5.0 { lineC.A = 180 }
+						lineC.A = uint8(45 * pts[i].scale)
 						var pth clip.Path; pth.Begin(gtx.Ops); pth.MoveTo(pts[i].pos); pth.LineTo(pts[j].pos)
-						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.9}.Op())
+						paint.FillShape(gtx.Ops, lineC, clip.Stroke{Path: pth.End(), Width: 0.8}.Op())
 					}
 				}
 			}
 
-			// 3. Chromatic Fragment Rendering
+			// 3. LOD Rendering Synthesis
 			for i, pt := range pts {
 				sz := 2.0 * pt.scale * (1.0 + s.PulseStrength*0.2)
-				if sz < 0.8 { sz = 0.8 }
 				pCl := pt.color
 				
-				if pt.distSq < 3000 || pt.mDist < 4.0 || pt.force > 0.5 {
-					sz *= (3.8 + pt.force*2.5)
+				isHigh := pt.distSq < 2800 || pt.mDist < 4.0 || pt.force > 0.5
+				if isHigh {
+					sz *= (3.8 + pt.force*2.5); pCl.A = 255
 					if pt.force > 0.5 || pt.mDist < 4.0 {
 						ripC := ColorPrimary; if i%2 == 0 { ripC = ColorSecondary }
 						pCl = lerpColor(pCl, ripC, 0.6)
 					}
-					pCl.A = 255
 					if pt.distSq < 2500 { pCl = lerpColor(pCl, ColorQuaternary, 0.7) }
+					
+					var pth clip.Path; pth.Begin(gtx.Ops); sx, sy := pt.pos.X, pt.pos.Y
+					if i%17 == 0 {
+						pth.MoveTo(f32.Pt(sx, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
+						pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz/2, sy+sz))
+					} else if i%13 == 0 {
+						pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
+						pth.LineTo(f32.Pt(sx+sz/2, sy+sz)); pth.LineTo(f32.Pt(sx, sy+sz/2)); pth.Close()
+					} else {
+						pth.MoveTo(f32.Pt(sx, sy+sz)); pth.LineTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz)); pth.Close()
+					}
+					paint.FillShape(gtx.Ops, pCl, clip.Outline{Path: pth.End()}.Op())
 				} else {
-					shim := uint8(math.Sin(float64(s.FrameCount)*0.1+float64(i)*0.01) * 40)
-					alpha := float64(220*pt.scale) + float64(shim)
-					pCl.A = uint8(math.Max(40, math.Min(255, alpha)))
+					// Low-cost draw for background fluid
+					pCl.A = uint8(140 * pt.scale)
+					paint.FillShape(gtx.Ops, pCl, clip.Rect{Min: image.Pt(int(pt.pos.X), int(pt.pos.Y)), Max: image.Pt(int(pt.pos.X)+int(sz+1), int(pt.pos.Y)+int(sz+1))}.Op())
 				}
-				var pth clip.Path; pth.Begin(gtx.Ops); sx, sy := pt.pos.X, pt.pos.Y
-				if i%17 == 0 { // Glyph
-					pth.MoveTo(f32.Pt(sx, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
-					pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz/2, sy+sz))
-				} else if i%13 == 0 { // Diamond
-					pth.MoveTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz/2))
-					pth.LineTo(f32.Pt(sx+sz/2, sy+sz)); pth.LineTo(f32.Pt(sx, sy+sz/2)); pth.Close()
-				} else { // Fragment
-					pth.MoveTo(f32.Pt(sx, sy+sz)); pth.LineTo(f32.Pt(sx+sz/2, sy)); pth.LineTo(f32.Pt(sx+sz, sy+sz)); pth.Close()
-				}
-				paint.FillShape(gtx.Ops, pCl, clip.Outline{Path: pth.End()}.Op())
 			}
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
