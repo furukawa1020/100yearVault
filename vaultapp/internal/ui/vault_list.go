@@ -216,109 +216,117 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						p.VY += pushDirY * force * 0.5
 						p.VX += uX * force * 0.2
 						p.VY += uY * force * 0.2
-					}
-				} else if euclidDistSq < 2500 && len(s.Memories) > 0 {
-					p.VX += dx * 0.02
-					p.VY += dy * 0.02
+				
+				depthScale := (1.0 - p.Z/1000.0)
+				repelRadius := float32(180.0) * depthScale
+				
+				if euclidDistSq < repelRadius*repelRadius {
+					dist := float32(math.Sqrt(float64(euclidDistSq)))
+					if dist < 0.1 { dist = 0.1 }
+					force := (1.0 - dist/repelRadius) * 2.5
+					p.VX -= (dx / dist) * force
+					p.VY -= (dy / dist) * force
 				}
 
-				pColor := p.Color
+				p.VX *= 0.94
+				p.VY *= 0.94
+				p.X += p.VX
+				p.Y += p.VY
+
+				points[i].pos = f32.Pt(baseSx+p.X, baseSy+p.Y)
+				points[i].color = p.Color
+				points[i].distSq = euclidDistSq
+				points[i].scale = scale * depthScale
 				
-				// 4. Face Silhouette & Kinetic Echoes (Landmarks + Trails)
+				// Avatar Interaction
 				avatarForce := float32(0)
-				if s.GazeActive && speed < 1.0 { 
+				if s.GazeActive {
 					s.FaceMu.Lock()
 					fPoints := s.FacePoints
 					fHistory := s.FaceHistory
 					fScale := s.FaceScale
-					fPulse := s.PulseStrength
 					s.FaceMu.Unlock()
 
-					// Main Landmarks + History Trails
-					// We loop current points (weight 1.0) and history (decaying weight)
-					baseRadius := float32(60.0) * fScale * (1.0 + fPulse*0.3)
-					
-					// Helper func for repulsion + coloring
-					applyRepulsion := func(points []f32.Point, weight float32) {
-						for i, fp := range points {
+					baseRadius := float32(60.0) * fScale * (1.0 + s.PulseStrength*0.3)
+					checkAvatar := func(pts []f32.Point, weight float32) {
+						for idx, fp := range pts {
 							if fp.X == 0 && fp.Y == 0 { continue }
-							fdx := baseSx + p.X - fp.X
-							fdy := baseSy + p.Y - fp.Y
+							fdx := points[i].pos.X - fp.X
+							fdy := points[i].pos.Y - fp.Y
 							fDistSq := fdx*fdx + fdy*fdy
-							
 							radius := baseRadius * weight
 							if fDistSq < radius*radius {
 								fdist := float32(math.Sqrt(float64(fDistSq)))
 								if fdist < 0.1 { fdist = 0.1 }
-								
-								// Force calculation with weight decay
 								localForce := (1.0 - fdist/radius) * 3.5 * weight
 								p.VX += (fdx / fdist) * localForce
 								p.VY += (fdy / fdist) * localForce
-								
 								if localForce > avatarForce { avatarForce = localForce }
-								
-								// Chromatic Resonance + Spiritual Aura
-								if i < 2 { // Eyes
-									// If extremely close to center, turn into "Inner Light" (Aura)
-									if localForce > 2.5 {
-										pColor = lerpColor(pColor, color.NRGBA{255, 255, 240, 255}, (localForce-2.5)*2)
-									} else {
-										pColor = lerpColor(pColor, ColorPrimary, localForce*0.7)
-									}
-								} else if i == 3 { // Mouth
-									pColor = lerpColor(pColor, ColorSecondary, localForce*0.7)
-								}
 							}
 						}
 					}
+					checkAvatar(fPoints, 1.0)
+					for _, hp := range fHistory { checkAvatar(hp, 0.4) }
+				}
+				points[i].force = avatarForce
+			}
 
-					// 1. Current Frame (Full weight)
-					applyRepulsion(fPoints, 1.0)
-					
-					// 2. Kinetic Echoes (Historical frames with decay)
-					for hIdx, hp := range fHistory {
-						// hIdx 0 is newest, len-1 is oldest
-						hWeight := float32(1.0 - float32(hIdx+1)/float32(len(fHistory)+1))
-						applyRepulsion(hp, hWeight * 0.4) // Ghostly trails are 40% strength max
+			// --- DRAWING: Constellations (The "Meaning" Web) ---
+			// We connect nearby particles with thin gold lines to increase information density.
+			for i := 0; i < len(points); i += 4 { // Sample to keep 60FPS
+				for j := i + 1; j < i+20 && j < len(points); j++ {
+					dx := points[i].pos.X - points[j].pos.X
+					dy := points[i].pos.Y - points[j].pos.Y
+					distsq := dx*dx + dy*dy
+					if distsq < 1600 { // Connection threshold
+						opacity := uint8(40 * (1.0 - float32(math.Sqrt(float64(distsq)))/40.0) * points[i].scale)
+						lineColor := ColorPrimary
+						lineColor.A = opacity
+						
+						var path clip.Path
+						path.Begin(gtx.Ops)
+						path.MoveTo(points[i].pos)
+						path.LineTo(points[j].pos)
+						paint.FillShape(gtx.Ops, lineColor, clip.Stroke{
+							Path:  path.End(),
+							Width: 0.5,
+						}.Op())
 					}
 				}
+			}
 
-				// Apply physics velocities
-				p.X += p.VX
-				p.Y += p.VY
-
-				// 5. Drawing (The Monolithic Materialization)
-				// We transform the pixel into a material fragment.
-				sx := baseSx + p.X
-				sy := baseSy + p.Y
+			// --- DRAWING: Fragments (The Solid Matter) ---
+			for i, pt := range points {
+				sx, sy := pt.pos.X, pt.pos.Y
+				pSize := 1.5 * pt.scale * (1.0 + s.PulseStrength*0.2)
+				pColor := pt.color
 				
-				pSize := 1.5 * scale * depthScale * (1.0 + s.PulseStrength*0.2)
-				shimmer := float32(math.Sin(float64(s.FrameCount)*0.1 + float64(i)*0.01)) * 30
-				
-				// Static Hover / Interaction Highlighting
-				if euclidDistSq < 2500 || avatarForce > 0.5 { 
-					pSize *= (3.5 + avatarForce*2.0) // Aura particles grow even larger
+				if pt.distSq < 2500 || pt.force > 0.5 { 
+					pSize *= (3.5 + pt.force*2.0)
 					pColor.A = 255
-					if euclidDistSq < 2500 {
-						pColor = lerpColor(pColor, ColorQuaternary, 0.6) // Interaction Glow (Gold)
-					}
+					if pt.distSq < 2500 { pColor = lerpColor(pColor, ColorQuaternary, 0.6) }
 				} else {
-					pColor.A = uint8(math.Max(0, math.Min(255, float64(180*scale)+float64(shimmer))))
+					shimmer := uint8(math.Sin(float64(s.FrameCount)*0.1 + float64(i)*0.01) * 30)
+					pColor.A = uint8(math.Max(0, math.Min(255, float64(180*pt.scale)+float64(shimmer))))
 				}
 
-				// Assign closest memory to lock-on logic
-				if euclidDistSq < 2500 && len(s.Memories) > 0 && euclidDistSq == closestDistSq {
-					s.NeuralMemory = s.Memories[i%len(s.Memories)]
+				var path clip.Path
+				path.Begin(gtx.Ops)
+				if i%13 == 0 { // Crystalline Diamond
+					path.MoveTo(f32.Pt(sx+pSize/2, sy))
+					path.LineTo(f32.Pt(sx+pSize, sy+pSize/2))
+					path.LineTo(f32.Pt(sx+pSize/2, sy+pSize))
+					path.LineTo(f32.Pt(sx, sy+pSize/2))
+					path.Close()
+				} else { // Hard Edge Fragment
+					path.MoveTo(f32.Pt(sx, sy+pSize))
+					path.LineTo(f32.Pt(sx+pSize/2, sy))
+					path.LineTo(f32.Pt(sx+pSize, sy+pSize))
+					path.Close()
 				}
-
-								return btn.Layout(gtx)
-							}),
-							layout.Flexed(1, layout.Spacer{}.Layout),
-						)
-					})
-				}),
-			)
+				paint.FillShape(gtx.Ops, pColor, path.End().Op())
+			}
+			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 	)
 }
