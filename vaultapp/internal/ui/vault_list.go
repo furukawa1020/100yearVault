@@ -57,6 +57,8 @@ type AppState struct {
 	GazePos       f32.Point
 	GazeVelocity  f32.Point
 	FacePoints    []f32.Point
+	FaceHistory   [][]f32.Point // Added for trails [History][LandmarkID]
+	PulseStrength float32       // Added for resonant pulsing
 	FaceScale     float32
 	GazeActive    bool
 	NeuralSurface widget.Clickable
@@ -242,36 +244,63 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 				pColor := p.Color
 				
-				// 4. Face Silhouette Points (The "Avatar" Logic)
+				// 4. Face Silhouette & Kinetic Echoes (Landmarks + Trails)
 				avatarForce := float32(0)
 				if s.GazeActive && speed < 1.0 { 
 					s.FaceMu.Lock()
 					fPoints := s.FacePoints
+					fHistory := s.FaceHistory
 					fScale := s.FaceScale
+					fPulse := s.PulseStrength
 					s.FaceMu.Unlock()
 
-					silhouetteRadius := float32(60.0) * fScale
-					for i, fp := range fPoints {
-						fdx := baseSx + p.X - fp.X
-						fdy := baseSy + p.Y - fp.Y
-						fDistSq := fdx*fdx + fdy*fdy
-						if fDistSq < silhouetteRadius*silhouetteRadius {
-							fdist := float32(math.Sqrt(float64(fDistSq)))
-							if fdist < 0.1 { fdist = 0.1 }
-							localForce := (1.0 - fdist/silhouetteRadius) * 3.5 
-							p.VX += (fdx / fdist) * localForce
-							p.VY += (fdy / fdist) * localForce
+					// Main Landmarks + History Trails
+					// We loop current points (weight 1.0) and history (decaying weight)
+					baseRadius := float32(60.0) * fScale * (1.0 + fPulse*0.3)
+					
+					// Helper func for repulsion + coloring
+					applyRepulsion := func(points []f32.Point, weight float32) {
+						for i, fp := range points {
+							if fp.X == 0 && fp.Y == 0 { continue }
+							fdx := baseSx + p.X - fp.X
+							fdy := baseSy + p.Y - fp.Y
+							fDistSq := fdx*fdx + fdy*fdy
 							
-							if localForce > avatarForce { avatarForce = localForce }
-							
-							// Chromatic Resonance: Shift color based on landmark type
-							// [0,1]: Eyes (Cyan), [3]: Mouth (Magenta)
-							if i < 2 {
-								pColor = lerpColor(pColor, ColorPrimary, localForce*0.7)
-							} else if i == 3 {
-								pColor = lerpColor(pColor, ColorSecondary, localForce*0.7)
+							radius := baseRadius * weight
+							if fDistSq < radius*radius {
+								fdist := float32(math.Sqrt(float64(fDistSq)))
+								if fdist < 0.1 { fdist = 0.1 }
+								
+								// Force calculation with weight decay
+								localForce := (1.0 - fdist/radius) * 3.5 * weight
+								p.VX += (fdx / fdist) * localForce
+								p.VY += (fdy / fdist) * localForce
+								
+								if localForce > avatarForce { avatarForce = localForce }
+								
+								// Chromatic Resonance + Spiritual Aura
+								if i < 2 { // Eyes
+									// If extremely close to center, turn into "Inner Light" (Aura)
+									if localForce > 2.5 {
+										pColor = lerpColor(pColor, color.NRGBA{255, 255, 240, 255}, (localForce-2.5)*2)
+									} else {
+										pColor = lerpColor(pColor, ColorPrimary, localForce*0.7)
+									}
+								} else if i == 3 { // Mouth
+									pColor = lerpColor(pColor, ColorSecondary, localForce*0.7)
+								}
 							}
 						}
+					}
+
+					// 1. Current Frame (Full weight)
+					applyRepulsion(fPoints, 1.0)
+					
+					// 2. Kinetic Echoes (Historical frames with decay)
+					for hIdx, hp := range fHistory {
+						// hIdx 0 is newest, len-1 is oldest
+						hWeight := float32(1.0 - float32(hIdx+1)/float32(len(fHistory)+1))
+						applyRepulsion(hp, hWeight * 0.4) // Ghostly trails are 40% strength max
 					}
 				}
 
@@ -283,14 +312,12 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				sx := baseSx + p.X
 				sy := baseSy + p.Y
 
-				pSize := 1.5 * scale * depthScale
-				
-				// Scintillation (Starry shimmer)
+				pSize := 1.5 * scale * depthScale * (1.0 + s.PulseStrength*0.2)
 				shimmer := float32(math.Sin(float64(s.FrameCount)*0.1 + float64(i)*0.01)) * 30
 				
 				// Static Hover / Interaction Highlighting
 				if euclidDistSq < 2500 || avatarForce > 0.5 { 
-					pSize *= 3.5
+					pSize *= (3.5 + avatarForce*2.0) // Aura particles grow even larger
 					pColor.A = 255
 					if euclidDistSq < 2500 {
 						pColor = lerpColor(pColor, ColorQuaternary, 0.6) // Interaction Glow (Gold)
