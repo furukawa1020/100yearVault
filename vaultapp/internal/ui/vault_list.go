@@ -239,23 +239,18 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			}
 
 			// --- DRAWING: Constellations (The "Meaning" Web) ---
-			// We connect nearby particles with thin gold lines to increase information density.
-			for i := 0; i < len(points); i += 4 { // Sample to keep 60FPS
-				for j := i + 1; j < i+20 && j < len(points); j++ {
-					dx := points[i].pos.X - points[j].pos.X
-					dy := points[i].pos.Y - points[j].pos.Y
-					distsq := dx*dx + dy*dy
-					if distsq < 1600 { // Connection threshold
-						opacity := uint8(40 * (1.0 - float32(math.Sqrt(float64(distsq)))/40.0) * points[i].scale)
+			for i := 0; i < len(points); i += 4 {
+				for j := i + 1; j < i+15 && j < len(points); j++ {
+					dx, dy := points[i].pos.X-points[j].pos.X, points[i].pos.Y-points[j].pos.Y
+					if dx*dx+dy*dy < 1200 {
 						lineColor := ColorPrimary
-						lineColor.A = opacity
-						
-						var path clip.Path
-						path.Begin(gtx.Ops)
-						path.MoveTo(points[i].pos)
-						path.LineTo(points[j].pos)
+						lineColor.A = uint8(30 * points[i].scale)
+						var pth clip.Path
+						pth.Begin(gtx.Ops)
+						pth.MoveTo(points[i].pos)
+						pth.LineTo(points[j].pos)
 						paint.FillShape(gtx.Ops, lineColor, clip.Stroke{
-							Path:  path.End(),
+							Path:  pth.End(),
 							Width: 0.5,
 						}.Op())
 					}
@@ -279,7 +274,12 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 				var path clip.Path
 				path.Begin(gtx.Ops)
-				if i%13 == 0 { // Crystalline Diamond
+				if i%17 == 0 { // Deep Semantic Glyph
+					path.MoveTo(f32.Pt(sx, sy))
+					path.LineTo(f32.Pt(sx+pSize, sy+pSize/2))
+					path.MoveTo(f32.Pt(sx+pSize/2, sy))
+					path.LineTo(f32.Pt(sx+pSize/2, sy+pSize))
+				} else if i%13 == 0 { // Crystalline Diamond
 					path.MoveTo(f32.Pt(sx+pSize/2, sy))
 					path.LineTo(f32.Pt(sx+pSize, sy+pSize/2))
 					path.LineTo(f32.Pt(sx+pSize/2, sy+pSize))
@@ -291,7 +291,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					path.LineTo(f32.Pt(sx+pSize, sy+pSize))
 					path.Close()
 				}
-				paint.FillShape(gtx.Ops, pColor, path.End().Op())
+				paint.FillShape(gtx.Ops, pColor, clip.Outline{Path: path.End()}.Op())
 			}
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
