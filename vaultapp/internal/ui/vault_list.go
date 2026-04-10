@@ -190,8 +190,11 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					mahaD2 := (du*du)/b2 + (dn*dn)/a2
 					if mahaD2 < 1.0 {
 						force := (1.0 - mahaD2) * speed * 2.0
-					p.VX -= (dx / dist) * force
-					p.VY -= (dy / dist) * force
+						px, py := nX, nY
+						if dn < 0 { px, py = -nX, -nY }
+						p.VX += px * force * 0.5
+						p.VY += py * force * 0.5
+					}
 				}
 
 				p.VX *= 0.94
