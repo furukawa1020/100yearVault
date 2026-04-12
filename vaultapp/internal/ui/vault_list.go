@@ -10,7 +10,6 @@ import (
 
 	"gioui.org/f32"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
@@ -149,7 +148,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 			focalLength, cosR, sinR := float32(800), float32(math.Cos(float64(s.Rotation))), float32(math.Sin(float64(s.Rotation)))
 
-			s.FaceMu.Lock(); fS := s.FaceScale; s.FaceMu.Unlock()
+			s.FaceMu.Lock(); _, _, _ = s.FacePoints, s.FaceHistory, s.FaceScale; s.FaceMu.Unlock()
 			angle := float32(math.Atan2(float64(s.EigenV[1]), float64(s.EigenV[0])))
 			csA, snA := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
 
