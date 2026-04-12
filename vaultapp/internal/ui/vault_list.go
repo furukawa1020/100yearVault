@@ -91,7 +91,7 @@ func (s *AppState) initNeuralSpace() {
 		p.ColorIdx = rand.Intn(len(ColorDataFragments))
 	}
 	s.InitOnce = true
-	fmt.Println("GALAXY HEARTBEAT: HYPER-FLUID POINT-ALPHA")
+	fmt.Println("GALAXY HEARTBEAT: HYPER-FLUID POINT-BETA")
 }
 
 func (s *AppState) RotateNeural() {
@@ -102,7 +102,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
 
-	// --- 1. PARALLEL PHYSICS (Stable Data Collection) ---
+	// --- 1. PARALLEL PHYSICS (Stable Core) ---
 	tPos := s.MousePos
 	tZ := 600.0 * (1.0 - s.FaceScale)
 	s.History5D[s.HistPtr] = [5]float32{tPos.X, tPos.Y, tZ, 0, 0}
@@ -193,18 +193,20 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			}
 			wg.Wait()
 
-			// --- 2. CONTIGUOUS BATCHING (Safety First) ---
-			// We iterate COLOR by COLOR to keep path operations contiguous in the ops buffer.
+			// --- 2. SECURE SEQUENTIAL BATCHING (Immortality Guard) ---
 			for cIdx := 0; cIdx <= len(ColorDataFragments); cIdx++ {
 				var pth clip.Path
-				pth.Begin(gtx.Ops)
+				isBegun := false
 				glowMode := cIdx == len(ColorDataFragments)
 				
-				found := false
 				for _, pt := range pts {
 					isGlow := pt.mDist < 5.0 || pt.force > 0.4
 					if (glowMode && isGlow) || (!glowMode && !isGlow && pt.colorIdx == cIdx) {
-						found = true
+						if !isBegun {
+							pth.Begin(gtx.Ops)
+							isBegun = true
+						}
+						
 						sz := 1.8 * pt.scale 
 						if sz > 4.5 { sz = 4.5 }
 						if glowMode { sz *= 1.8 }
@@ -219,12 +221,13 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					}
 				}
 				
-				if found {
+				if isBegun {
 					col := color.NRGBA{255, 255, 255, 255}
 					if !glowMode {
 						col = ColorDataFragments[cIdx]
 						col.A = 160
 					}
+					// CRITICAL: End() is now guaranteed to be called only if Begin() was.
 					paint.FillShape(gtx.Ops, col, clip.Outline{Path: pth.End()}.Op())
 				}
 			}
