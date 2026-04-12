@@ -175,14 +175,12 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				pCl := p.Color; if mDist < 6.0 { sz *= 2.0; pCl = ColorPrimary }
 				pCl.A = uint8(180 * scale)
 
-				// 安全のため、指向性ダイヤモンドから軽量な楕円に戻しつつ、主軸への指向性を表現
+				// 安全のため、直接座標を指定して描画
 				hSz := sz * 1.5
-				stack := op.Offset(f32.Pt(bSx+p.X, bSy+p.Y)).Push(gtx.Ops)
 				paint.FillShape(gtx.Ops, pCl, clip.Ellipse{
-					Min: image.Pt(int(-hSz*csA), int(-sz*snA)),
-					Max: image.Pt(int(hSz*csA+1), int(sz*snA+1)),
+					Min: image.Pt(int(bSx+p.X-hSz*csA), int(bSy+p.Y-sz*snA)),
+					Max: image.Pt(int(bSx+p.X+hSz*csA+1), int(bSy+p.Y+sz*snA+1)),
 				}.Op(gtx.Ops))
-				stack.Pop()
 			}
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
