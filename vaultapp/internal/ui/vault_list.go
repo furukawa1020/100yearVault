@@ -31,7 +31,7 @@ type Particle struct {
 	X, Y, Z             float32 
 	VX, VY, VZ          float32 
 	Mass, Drag          float32
-	Color               color.NRGBA
+	ColorIdx            int 
 }
 
 type AppState struct {
@@ -65,7 +65,6 @@ type AppState struct {
 	History5D [128][5]float32
 	HistPtr   int
 	InvS      [3][3]float32 
-	InvV      [2][2]float32 
 	EigenV    [3]float32 
 
 	// Screen Navigation
@@ -74,8 +73,9 @@ type AppState struct {
 	Ritual        RitualState
 }
 
+// 爆速化のため、密度と演算のスイートスポットである6144粒子を採用
 const (
-	TotalParticles = 10240 
+	TotalParticles = 6144 
 )
 
 func (s *AppState) initNeuralSpace() {
@@ -90,35 +90,22 @@ func (s *AppState) initNeuralSpace() {
 		p.BaseZ = float32(math.Cos(a2) * dZ)
 		p.Mass = 0.5 + rand.Float32()*0.6
 		p.Drag = 0.94 + rand.Float32()*0.02
-		p.Color = ColorDataFragments[rand.Intn(len(ColorDataFragments))]
+		p.ColorIdx = rand.Intn(len(ColorDataFragments))
 	}
 	s.InitOnce = true
-	fmt.Println("GALAXY HEARTBEAT: FULL SPECTRUM INITIALIZED")
+	fmt.Println("GALAXY HEARTBEAT: HYPER-FLUID INITIALIZED")
 }
 
 func (s *AppState) RotateNeural() {
 	s.initNeuralSpace()
-	num := len(s.Memories)
-	if num == 0 { return }
-	for i := range s.Particles {
-		p, m := &s.Particles[i], s.Memories[i%num]
-		hash := float32(0)
-		for _, c := range m.ID { hash += float32(c) }
-		a, d := float64(hash*0.1), 200.0+math.Mod(float64(hash), 400.0)
-		spr := 60.0 + math.Mod(float64(hash), 100.0)
-		p.BaseX = float32(math.Cos(a)*d) + float32((rand.Float64()-0.5)*spr)
-		p.BaseY = float32(math.Sin(a)*d) + float32((rand.Float64()-0.5)*spr)
-		p.BaseZ = float32(math.Sin(a*0.5)*150.0) + float32((rand.Float64()-0.5)*spr)
-		if m.Aura == vault.StateRadiant { p.Color = color.NRGBA{255, 255, 200, 255} }
-	}
 }
 
 func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
-	if s.FrameCount % 100 == 0 { fmt.Printf("GALAXY HEARTBEAT: FRAME %d\n", s.FrameCount) }
+	if s.FrameCount % 100 == 0 { fmt.Printf("GALAXY HYPER-FPS: FRAME %d\n", s.FrameCount) }
 	s.FrameCount++
 
-	// 1. TENSOR ENGINE (Eigen Analysis)
+	// --- 1. TENSOR PHYSICS (Parallel Optimized) ---
 	tPos := s.MousePos
 	tZ := 600.0 * (1.0 - s.FaceScale)
 	s.History5D[s.HistPtr] = [5]float32{tPos.X, tPos.Y, tZ, 0, 0}
@@ -138,13 +125,13 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.InvS[0][0], s.InvS[1][1], s.InvS[2][2] = (c3[1][1]*c3[2][2]-c3[1][2]*c3[2][1])/det, (c3[0][0]*c3[2][2]-c3[0][2]*c3[2][0])/det, (c3[0][0]*c3[1][1]-c3[0][1]*c3[1][0])/det
 	s.InvS[0][1] = (c3[0][2]*c3[2][1]-c3[0][1]*c3[2][2])/det
 
-	v := [3]float32{1, 1, 1}
+	vE := [3]float32{1, 1, 1}
 	for k:=0; k<3; k++ {
-		v2 := [3]float32{c3[0][0]*v[0]+c3[0][1]*v[1]+c3[0][2]*v[2], c3[1][0]*v[0]+c3[1][1]*v[1]+c3[1][2]*v[2], c3[2][0]*v[0]+c3[2][1]*v[1]+c3[2][2]*v[2]}
+		v2 := [3]float32{c3[0][0]*vE[0]+c3[0][1]*vE[1]+c3[0][2]*vE[2], c3[1][0]*vE[0]+c3[1][1]*vE[1]+c3[1][2]*vE[2], c3[2][0]*vE[0]+c3[2][1]*vE[1]+c3[2][2]*vE[2]}
 		mag := float32(math.Sqrt(float64(v2[0]*v2[0] + v2[1]*v2[1] + v2[2]*v2[2])))
-		if mag > 0 { v[0],v[1],v[2] = v2[0]/mag, v2[1]/mag, v2[2]/mag }
+		if mag > 0 { vE[0],vE[1],vE[2] = v2[0]/mag, v2[1]/mag, v2[2]/mag }
 	}
-	s.EigenV = v
+	s.EigenV = vE
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
@@ -153,16 +140,18 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
-			focalLength, cosR, sinR := float32(1000), float32(math.Cos(float64(s.Rotation))), float32(math.Sin(float64(s.Rotation)))
+			focalLength := float32(1000)
+			cosR, sinR := float32(math.Cos(float64(s.Rotation))), float32(math.Sin(float64(s.Rotation)))
+			s.Rotation += 0.0025
 
-			s.FaceMu.Lock(); fP, _, fS := s.FacePoints, s.FaceHistory, s.FaceScale; s.FaceMu.Unlock()
+			s.FaceMu.Lock(); fP, fS := s.FacePoints, s.FaceScale; s.FaceMu.Unlock()
 			bRad := float32(85.0) * fS * (1.0 + s.PulseStrength*0.3)
 			angle := float32(math.Atan2(float64(s.EigenV[1]), float64(s.EigenV[0])))
 			csA, snA := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
 
 			var wg sync.WaitGroup
 			numG := 4; batchSize := TotalParticles / numG
-			type screenPt struct { pos f32.Point; color color.NRGBA; scale float32; force float32; mDist float32 }
+			type screenPt struct { pos f32.Point; scale float32; force float32; mDist float32; colorIdx int }
 			pts := make([]screenPt, TotalParticles)
 
 			for g := 0; g < numG; g++ {
@@ -173,13 +162,13 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						p := &s.Particles[i]
 						tx, ty, tz := p.BaseX*cosR-p.BaseZ*sinR, p.BaseY, p.BaseX*sinR+p.BaseZ*cosR
 						scale := focalLength / (focalLength + tz)
-						if scale > 1.4 { scale = 1.4 }; if scale < 0.2 { scale = 0.2 }
+						if scale > 1.3 { scale = 1.3 }; if scale < 0.2 { scale = 0.2 }
 						bSx, bSy := center.X+tx*scale, center.Y+ty*scale
 						dx, dy, dz := tPos.X-(bSx+p.X), tPos.Y-(bSy+p.Y), tZ-tz
 						mDist := dx*dx*s.InvS[0][0] + dy*dy*s.InvS[1][1] + dz*dz*s.InvS[2][2] + 2*dx*dy*s.InvS[0][1]
 
 						if mDist < 18.0 {
-							f := (18.0 - mDist) * 1.5 / p.Mass 
+							f := (18.0 - mDist) * 1.55 / p.Mass 
 							p.VX -= (dx / (float32(math.Sqrt(float64(dx*dx+dy*dy+1)))+0.1)) * f
 							p.VY -= (dy / (float32(math.Sqrt(float64(dx*dx+dy*dy+1)))+0.1)) * f
 						}
@@ -195,33 +184,56 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								fD2 := fdx*fdx + fdy*fdy
 								if fD2 < bRad*bRad {
 									fdst := float32(math.Sqrt(float64(fD2)))
-									lF := (1.0 - fdst/bRad) * 5.0 / p.Mass
+									lF := (1.0 - fdst/bRad) * 6.0 / p.Mass
 									p.VX += (fdx / (fdst+0.1)) * lF; p.VY += (fdy / (fdst+0.1)) * lF
 									if lF > resF { resF = lF }
 								}
 							}
 						}
-						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), color: p.Color, scale: scale * dScl, force: resF, mDist: mDist}
+						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), scale: scale * dScl, force: resF, mDist: mDist, colorIdx: p.ColorIdx}
 					}
 				}(g*batchSize, (g+1)*batchSize)
 			}
 			wg.Wait()
 
+			// --- 2. COLOR BATCHING RENDER (Dramatic Optimization) ---
+			// Create paths for each base color + one for the white "Glow"
+			paths := make([]clip.Path, len(ColorDataFragments)+1)
+			for i := range paths { paths[i].Begin(gtx.Ops) }
+			glowIdx := len(ColorDataFragments)
+
 			for _, pt := range pts {
 				sz := 1.8 * pt.scale 
 				if sz > 4.5 { sz = 4.5 }
-				pCl := pt.color
+				
+				// Determine target path: Base color OR Glow
+				targetIdx := pt.colorIdx
 				if pt.mDist < 5.0 || pt.force > 0.4 {
-					sz *= 2.0; pCl.A = 255
-					glow := ColorSecondary; if pt.force > 0.4 { glow = ColorPrimary }
-					pCl = lerpColor(pCl, glow, 0.7)
-				} else { pCl.A = uint8(160 * pt.scale) }
+					sz *= 2.0; targetIdx = glowIdx
+				}
+				
+				// Add rice-grain diamond to path
 				hSz := sz * 1.5
-				paint.FillShape(gtx.Ops, pCl, clip.Ellipse{
-					Min: image.Pt(int(pt.pos.X-hSz*csA), int(pt.pos.Y-sz*snA)),
-					Max: image.Pt(int(pt.pos.X+hSz*csA+1), int(pt.pos.Y+sz*snA+1)),
-				}.Op(gtx.Ops))
+				sx, sy := pt.pos.X, pt.pos.Y
+				paths[targetIdx].MoveTo(f32.Pt(sx + hSz*csA, sy + hSz*snA))
+				paths[targetIdx].LineTo(f32.Pt(sx - sz*snA, sy + sz*csA))
+				paths[targetIdx].LineTo(f32.Pt(sx - hSz*csA, sy - hSz*snA))
+				paths[targetIdx].LineTo(f32.Pt(sx + sz*snA, sy - sz*csA))
+				paths[targetIdx].Close()
 			}
+
+			// Execute ONLY 6 DRAW CALLS for all 6,144 particles
+			for i, pth := range paths {
+				c := color.NRGBA{255, 255, 255, 255} 
+				if i < glowIdx {
+					c = ColorDataFragments[i]; c.A = 180
+				} else {
+					// Pure White Glow for interaction
+					c.A = 255
+				}
+				paint.FillShape(gtx.Ops, c, clip.Outline{Path: pth.End()}.Op())
+			}
+
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 	)
