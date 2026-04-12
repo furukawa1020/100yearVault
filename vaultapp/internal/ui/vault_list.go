@@ -72,7 +72,6 @@ type AppState struct {
 	Ritual        RitualState
 }
 
-// 爆速化のため、密度と演算のスイートスポットである6144粒子を採用
 const (
 	TotalParticles = 6144 
 )
@@ -92,7 +91,7 @@ func (s *AppState) initNeuralSpace() {
 		p.ColorIdx = rand.Intn(len(ColorDataFragments))
 	}
 	s.InitOnce = true
-	fmt.Println("GALAXY HEARTBEAT: HYPER-FLUID INITIALIZED")
+	fmt.Println("GALAXY HEARTBEAT: HYPER-FLUID POINT-ALPHA")
 }
 
 func (s *AppState) RotateNeural() {
@@ -101,10 +100,9 @@ func (s *AppState) RotateNeural() {
 
 func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
-	if s.FrameCount % 100 == 0 { fmt.Printf("GALAXY HYPER-FPS: FRAME %d\n", s.FrameCount) }
 	s.FrameCount++
 
-	// --- 1. TENSOR PHYSICS (Parallel Optimized) ---
+	// --- 1. PARALLEL PHYSICS (Stable Data Collection) ---
 	tPos := s.MousePos
 	tZ := 600.0 * (1.0 - s.FaceScale)
 	s.History5D[s.HistPtr] = [5]float32{tPos.X, tPos.Y, tZ, 0, 0}
@@ -195,42 +193,40 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			}
 			wg.Wait()
 
-			// --- 2. COLOR BATCHING RENDER (Dramatic Optimization) ---
-			// Create paths for each base color + one for the white "Glow"
-			paths := make([]clip.Path, len(ColorDataFragments)+1)
-			for i := range paths { paths[i].Begin(gtx.Ops) }
-			glowIdx := len(ColorDataFragments)
-
-			for _, pt := range pts {
-				sz := 1.8 * pt.scale 
-				if sz > 4.5 { sz = 4.5 }
+			// --- 2. CONTIGUOUS BATCHING (Safety First) ---
+			// We iterate COLOR by COLOR to keep path operations contiguous in the ops buffer.
+			for cIdx := 0; cIdx <= len(ColorDataFragments); cIdx++ {
+				var pth clip.Path
+				pth.Begin(gtx.Ops)
+				glowMode := cIdx == len(ColorDataFragments)
 				
-				// Determine target path: Base color OR Glow
-				targetIdx := pt.colorIdx
-				if pt.mDist < 5.0 || pt.force > 0.4 {
-					sz *= 2.0; targetIdx = glowIdx
+				found := false
+				for _, pt := range pts {
+					isGlow := pt.mDist < 5.0 || pt.force > 0.4
+					if (glowMode && isGlow) || (!glowMode && !isGlow && pt.colorIdx == cIdx) {
+						found = true
+						sz := 1.8 * pt.scale 
+						if sz > 4.5 { sz = 4.5 }
+						if glowMode { sz *= 1.8 }
+						
+						hSz := sz * 1.5
+						sx, sy := pt.pos.X, pt.pos.Y
+						pth.MoveTo(f32.Pt(sx + hSz*csA, sy + hSz*snA))
+						pth.LineTo(f32.Pt(sx - sz*snA, sy + sz*csA))
+						pth.LineTo(f32.Pt(sx - hSz*csA, sy - hSz*snA))
+						pth.LineTo(f32.Pt(sx + sz*snA, sy - sz*csA))
+						pth.Close()
+					}
 				}
 				
-				// Add rice-grain diamond to path
-				hSz := sz * 1.5
-				sx, sy := pt.pos.X, pt.pos.Y
-				paths[targetIdx].MoveTo(f32.Pt(sx + hSz*csA, sy + hSz*snA))
-				paths[targetIdx].LineTo(f32.Pt(sx - sz*snA, sy + sz*csA))
-				paths[targetIdx].LineTo(f32.Pt(sx - hSz*csA, sy - hSz*snA))
-				paths[targetIdx].LineTo(f32.Pt(sx + sz*snA, sy - sz*csA))
-				paths[targetIdx].Close()
-			}
-
-			// Execute ONLY 6 DRAW CALLS for all 6,144 particles
-			for i, pth := range paths {
-				c := color.NRGBA{255, 255, 255, 255} 
-				if i < glowIdx {
-					c = ColorDataFragments[i]; c.A = 180
-				} else {
-					// Pure White Glow for interaction
-					c.A = 255
+				if found {
+					col := color.NRGBA{255, 255, 255, 255}
+					if !glowMode {
+						col = ColorDataFragments[cIdx]
+						col.A = 160
+					}
+					paint.FillShape(gtx.Ops, col, clip.Outline{Path: pth.End()}.Op())
 				}
-				paint.FillShape(gtx.Ops, c, clip.Outline{Path: pth.End()}.Op())
 			}
 
 			return layout.Dimensions{Size: gtx.Constraints.Max}
