@@ -155,7 +155,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 			focalLength, cosR, sinR := float32(1000), float32(math.Cos(float64(s.Rotation))), float32(math.Sin(float64(s.Rotation)))
 
-			s.FaceMu.Lock(); fP, fH, fS := s.FacePoints, s.FaceHistory, s.FaceScale; s.FaceMu.Unlock()
+			s.FaceMu.Lock(); fP, _, fS := s.FacePoints, s.FaceHistory, s.FaceScale; s.FaceMu.Unlock()
 			bRad := float32(85.0) * fS * (1.0 + s.PulseStrength*0.3)
 			angle := float32(math.Atan2(float64(s.EigenV[1]), float64(s.EigenV[0])))
 			csA, snA := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
