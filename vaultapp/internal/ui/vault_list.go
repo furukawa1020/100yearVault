@@ -61,10 +61,11 @@ type AppState struct {
 	FrameCount             int
 	FaceMu                 sync.Mutex
 
-	// 5D Tracking Input [x, y, z, vx, vy]
+	// 5D Statistical Manifold [x, y, z, vx, vy]
 	History5D [128][5]float32
 	HistPtr   int
 	InvS      [3][3]float32 
+	EigenV    [3]float32 // Principal Spatial Eigenvector
 
 	// Screen Navigation
 	CurrentScreen Screen
@@ -86,7 +87,7 @@ func (s *AppState) initNeuralSpace() {
 		p.BaseX = float32(math.Sin(a2)*math.Cos(a1) * dX)
 		p.BaseY = float32(math.Sin(a2)*math.Sin(a1) * dY)
 		p.BaseZ = float32(math.Cos(a2) * dZ)
-		p.Mass = 0.5 + rand.Float32()*0.5
+		p.Mass = 0.5 + rand.Float32()*0.6
 		p.Drag = 0.94 + rand.Float32()*0.02
 		p.Color = ColorDataFragments[rand.Intn(len(ColorDataFragments))]
 	}
@@ -113,36 +114,45 @@ func (s *AppState) RotateNeural() {
 func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 	s.initNeuralSpace()
 	s.FrameCount++
-	s.Rotation += 0.0028
+	s.Rotation += 0.0022
 
-	// 1. 5D Context Capture
+	// --- 1. 5D TENSOR ENGINE (Eigen-Extraction) ---
 	tPos := s.MousePos
 	tVel := s.MouseVelocity
-	if s.GazeActive && tVel.X*tVel.X+tVel.Y*tVel.Y < 1.0 {
-		tPos, tVel = s.GazePos, s.GazeVelocity
-	}
-	tZ := 500.0 * (1.0 - s.FaceScale)
+	if s.GazeActive && tVel.X*tVel.X+tVel.Y*tVel.Y < 1.0 { tPos, tVel = s.GazePos, s.GazeVelocity }
+	tZ := 600.0 * (1.0 - s.FaceScale)
 	s.History5D[s.HistPtr] = [5]float32{tPos.X, tPos.Y, tZ, tVel.X, tVel.Y}
 	s.HistPtr = (s.HistPtr + 1) % 128
 
-	// 3D Covariance Loop (High-speed)
 	var m3 [3]float32; for _, v := range s.History5D { m3[0],m3[1],m3[2] = m3[0]+v[0],m3[1]+v[1],m3[2]+v[2] }
 	m3[0], m3[1], m3[2] = m3[0]/128, m3[1]/128, m3[2]/128
 	var c3 [3][3]float32
-	for _, v := range s.History5D {
+	for index, v := range s.History5D {
+		_ = index
 		d0, d1, d2 := v[0]-m3[0], v[1]-m3[1], v[2]-m3[2]
 		c3[0][0]+=d0*d0; c3[1][1]+=d1*d1; c3[2][2]+=d2*d2; c3[0][1]+=d0*d1; c3[0][2]+=d0*d2; c3[1][2]+=d1*d2
 	}
 	for i:=0;i<3;i++ { for j:=0; j<3; j++ { c3[i][j] /= 128 } }
-	c3[0][0]+=500; c3[1][1]+=500; c3[2][2]+=500; // Floor for smooth field
+	c3[0][0]+=400; c3[1][1]+=400; c3[2][2]+=400; // Stabilizing floor
 	c3[1][0], c3[2][0], c3[2][1] = c3[0][1], c3[0][2], c3[1][2]
 
 	det := c3[0][0]*(c3[1][1]*c3[2][2]-c3[1][2]*c3[2][1]) - c3[0][1]*(c3[1][0]*c3[2][2]-c3[1][2]*c3[2][0]) + c3[0][2]*(c3[1][0]*c3[2][1]-c3[1][1]*c3[2][0])
 	if det < 0.1 { det = 0.1 }
-	s.InvS[0][0] = (c3[1][1]*c3[2][2]-c3[1][2]*c3[2][1])/det
-	s.InvS[1][1] = (c3[0][0]*c3[2][2]-c3[0][2]*c3[2][0])/det
-	s.InvS[2][2] = (c3[0][0]*c3[1][1]-c3[0][1]*c3[1][0])/det
+	s.InvS[0][0], s.InvS[1][1], s.InvS[2][2] = (c3[1][1]*c3[2][2]-c3[1][2]*c3[2][1])/det, (c3[0][0]*c3[2][2]-c3[0][2]*c3[2][0])/det, (c3[0][0]*c3[1][1]-c3[0][1]*c3[1][0])/det
 	s.InvS[0][1] = (c3[0][2]*c3[2][1]-c3[0][1]*c3[2][2])/det
+
+	// POWER ITERATION for Principal Eigenvector (Direction of "Flow")
+	v := [3]float32{1, 1, 1}
+	for k:=0; k<3; k++ {
+		v2 := [3]float32{
+			c3[0][0]*v[0] + c3[0][1]*v[1] + c3[0][2]*v[2],
+			c3[1][0]*v[0] + c3[1][1]*v[1] + c3[1][2]*v[2],
+			c3[2][0]*v[0] + c3[2][1]*v[1] + c3[2][2]*v[2],
+		}
+		mag := float32(math.Sqrt(float64(v2[0]*v2[0] + v2[1]*v2[1] + v2[2]*v2[2])))
+		if mag > 0 { v[0], v[1], v[2] = v2[0]/mag, v2[1]/mag, v2[2]/mag }
+	}
+	s.EigenV = v
 
 	return layout.Stack{Alignment: layout.Center}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
@@ -152,8 +162,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
-			focalLength := float32(1000)
-			cosR, sinR := float32(math.Cos(float64(s.Rotation))), float32(math.Sin(float64(s.Rotation)))
+			focalLength, cosR, sinR := float32(1000), float32(math.Cos(float64(s.Rotation))), float32(math.Sin(float64(s.Rotation)))
 
 			type screenPt struct {
 				pos f32.Point; color color.NRGBA; scale float32; force float32; mDist float32
@@ -161,10 +170,9 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			pts := make([]screenPt, TotalParticles)
 
 			var wg sync.WaitGroup
-			numG := 4
-			batchSize := TotalParticles / numG
+			numG := 4; batchSize := TotalParticles / numG
 			s.FaceMu.Lock(); fP, fH, fS := s.FacePoints, s.FaceHistory, s.FaceScale; s.FaceMu.Unlock()
-			bRad := float32(85.0) * fS * (1.0 + s.PulseStrength*0.3)
+			bRad := float32(90.0) * fS * (1.0 + s.PulseStrength*0.3)
 
 			for g := 0; g < numG; g++ {
 				wg.Add(1)
@@ -174,24 +182,21 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						p := &s.Particles[i]
 						tx, ty, tz := p.BaseX*cosR-p.BaseZ*sinR, p.BaseY, p.BaseX*sinR+p.BaseZ*cosR
 						
-						// PERSPECTIVE STABILIZATION: NO LARGE SCALES
 						scale := focalLength / (focalLength + tz)
-						if scale > 1.4 { scale = 1.4 } 
-						if scale < 0.2 { scale = 0.2 }
+						if scale > 1.4 { scale = 1.4 }; if scale < 0.2 { scale = 0.2 }
 
 						bSx, bSy := center.X+tx*scale, center.Y+ty*scale
 						dx, dy, dz := tPos.X-(bSx+p.X), tPos.Y-(bSy+p.Y), tZ-tz
 						mDist := dx*dx*s.InvS[0][0] + dy*dy*s.InvS[1][1] + dz*dz*s.InvS[2][2] + 2*dx*dy*s.InvS[0][1]
 
-						// STRONG FLUID INTERACTION
-						if mDist < 18.0 {
-							f := (18.0 - mDist) * 1.6 / p.Mass 
+						// 5D TENSOR INTERACTION
+						if mDist < 17.0 {
+							f := (17.0 - mDist) * 1.55 / p.Mass 
 							p.VX -= (dx / (float32(math.Sqrt(float64(dx*dx+dy*dy)))+0.1)) * f
 							p.VY -= (dy / (float32(math.Sqrt(float64(dx*dx+dy*dy)))+0.1)) * f
 						}
 						
-						// Elastic Recovery
-						p.VX, p.VY = p.VX + (0 - p.X)*0.08, p.VY + (0 - p.Y)*0.08
+						p.VX, p.VY = p.VX + (0 - p.X)*0.075, p.VY + (0 - p.Y)*0.075
 						
 						resF := float32(0)
 						if s.GazeActive {
@@ -202,7 +207,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 									fD2 := fdx*fdx + fdy*fdy; rad := bRad * w
 									if fD2 < rad*rad {
 										fdst := float32(math.Sqrt(float64(fD2)))
-										lF := (1.0 - fdst/rad) * 5.8 * w / p.Mass
+										lF := (1.0 - fdst/rad) * 6.0 * w / p.Mass
 										p.VX += (fdx / (fdst+0.1)) * lF; p.VY += (fdy / (fdst+0.1)) * lF
 										if lF > resF { resF = lF }
 									}
@@ -210,40 +215,44 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 							}
 							runA(fP, 1.0); for _, h := range fH { runA(h, 0.4) }
 						}
-
 						p.VX, p.VY = p.VX*p.Drag, p.VY*p.Drag
 						p.X, p.Y = p.X+p.VX, p.Y+p.VY
 						dScl := (1.0 - tz/1500.0); if dScl < 0.5 { dScl = 0.5 }
-						
 						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), color: p.Color, scale: scale * dScl, force: resF, mDist: mDist}
 					}
 				}(g*batchSize, (g+1)*batchSize)
 			}
 			wg.Wait()
 
-			// 2. ABSOLUTE PARTICLE RENDERING (ZERO RECTS, ZERO PATHS)
+			// --- 2. EIGEN-GRAIN RENDERING (Directional Orientation) ---
+			angle := float32(math.Atan2(float64(s.EigenV[1]), float64(s.EigenV[0])))
+			csA, snA := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
+
 			for i, pt := range pts {
-				// Base Size: 1.0 to 2.5 pixels. STALWARTLY SMALL.
+				// Rice-grain shaped directional fragments
 				sz := 1.8 * pt.scale 
-				if sz > 4.5 { sz = 4.5 } // NEVER COVER THE SCREEN
+				if sz > 4.2 { sz = 4.2 } 
 				
 				pCl := pt.color
-				
-				// Mahalanobis Resonance: Closer to interaction = Much Brighter
 				if pt.mDist < 5.0 || pt.force > 0.4 {
 					sz *= 2.0; pCl.A = 255
-					// White-ish Glow for near-cursor
 					glow := ColorSecondary; if i%2 == 0 { glow = ColorPrimary }
 					pCl = lerpColor(pCl, glow, 0.7)
 				} else {
 					pCl.A = uint8(160 * pt.scale)
 				}
 				
-				// DRAW AS ELLIPSE (TRUE PARTICLE)
-				paint.FillShape(gtx.Ops, pCl, clip.Ellipse{
-					Min: image.Pt(int(pt.pos.X-sz), int(pt.pos.Y-sz)),
-					Max: image.Pt(int(pt.pos.X+sz), int(pt.pos.Y+sz)),
-				}.Op(gtx.Ops))
+				// Rotated Diamond Fragment (Aligning with Statistical Flow)
+				var pth clip.Path; pth.Begin(gtx.Ops); sx, sy := pt.pos.X, pt.pos.Y
+				hSz := sz * 1.5 // Stretched axis
+				
+				// Local rotation relative to EigenAxis
+				pth.MoveTo(f32.Pt(sx + hSz*csA, sy + hSz*snA))
+				pth.LineTo(f32.Pt(sx - sz*snA, sy + sz*csA))
+				pth.LineTo(f32.Pt(sx - hSz*csA, sy - hSz*snA))
+				pth.LineTo(f32.Pt(sx + sz*snA, sy - sz*csA))
+				pth.Close()
+				paint.FillShape(gtx.Ops, pCl, clip.Outline{Path: pth.End()}.Op())
 			}
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
