@@ -517,8 +517,14 @@ func startWebcamGazeTracking(state *ui.AppState) {
 					oldVal := state.MotionGrid[r][mirroredC]
 					if intensity > oldVal {
 						state.MotionGrid[r][mirroredC] = intensity
+						
+						// Calculate local velocity (heuristic based on shift)
+						// For now, simpler: use global change if intensity is high
+						state.MotionVelocity[r][mirroredC] = f32.Pt(state.GazeVelocity.X*0.2, state.GazeVelocity.Y*0.2)
 					} else {
 						state.MotionGrid[r][mirroredC] = oldVal * 0.85 // Fade out
+						state.MotionVelocity[r][mirroredC].X *= 0.8
+						state.MotionVelocity[r][mirroredC].Y *= 0.8
 					}
 				}
 			}

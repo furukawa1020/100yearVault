@@ -238,12 +238,14 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								
 								if mIntensity > 0.1 {
 									// Tactile Adhesion: Particles "stick" to moving regions
-									adhesion := mIntensity * 4.0 / p.Mass
-									p.VX += (s.GrabVelocity.X * 0.15) * adhesion // Use global velocity for momentum
+									mVel := s.MotionVelocity[gridR][gridC]
+									adhesion := mIntensity * 6.0 / p.Mass
+									p.VX += mVel.X * adhesion
+									p.VY += mVel.Y * adhesion
 									
 									// Jitter/Resonance for tactile feel
-									p.VX += (rand.Float32() - 0.5) * 2.0 * mIntensity
-									p.VY += (rand.Float32() - 0.5) * 2.0 * mIntensity
+									p.VX += (rand.Float32() - 0.5) * 2.5 * mIntensity
+									p.VY += (rand.Float32() - 0.5) * 2.5 * mIntensity
 									
 									if mIntensity > 0.5 {
 										// Actual Grab feel: dampen velocity to "hold"
