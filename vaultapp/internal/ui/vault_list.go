@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"image/color"
 	"math"
 	"math/rand"
@@ -320,18 +321,18 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				col.A = uint8(255 * s.FocusStrength)
 				
 				// Title
-				op.Offset(f32.Pt(apt.pos.X+20, apt.pos.Y-10)).Add(gtx.Ops)
+				op.Offset(image.Pt(int(apt.pos.X+20), int(apt.pos.Y-10))).Add(gtx.Ops)
 				titleLabel := material.H5(s.Theme, m.Title)
 				titleLabel.Color = col
 				titleLabel.Layout(gtx)
 				
 				// Hint/Aura
-				op.Offset(f32.Pt(0, 30)).Add(gtx.Ops)
+				op.Offset(image.Pt(0, 30)).Add(gtx.Ops)
 				hintLabel := material.Body2(s.Theme, string(m.Aura) + " resonance detected...")
 				hintLabel.Color = color.NRGBA{R: 200, G: 200, B: 200, A: col.A}
 				hintLabel.Layout(gtx)
 				
-				op.Offset(f32.Pt(0, -20)).Add(gtx.Ops) // Reset offset for next potential drawings
+				op.Offset(image.Pt(0, -20)).Add(gtx.Ops) // Reset offset for next potential drawings
 			}
 
 			// --- 4. SINGULARITY (The Void of Creation) ---
@@ -340,7 +341,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				if s.IsSingularityFocused {
 					sCol = color.NRGBA{255, 255, 255, 255}
 					// Singularity Typography
-					op.Offset(f32.Pt(center.X - 60, center.Y + 60)).Add(gtx.Ops)
+					op.Offset(image.Pt(int(center.X - 60), int(center.Y + 60))).Add(gtx.Ops)
 					composeLabel := material.Body1(s.Theme, "DESCEND INTO VOID")
 					composeLabel.Color = color.NRGBA{255, 255, 255, 255}
 					composeLabel.Layout(gtx)
