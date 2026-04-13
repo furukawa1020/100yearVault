@@ -66,6 +66,12 @@ type AppState struct {
 	FocusStrength          float32      // How "awakened" the focus is (0.0 to 1.0)
 	SingularityPos         f32.Point    // Position of the central singularity
 	IsSingularityFocused   bool
+	
+	// Grabbing Mechanic
+	IsGrabbing             bool
+	GrabPos                f32.Point
+	GrabVelocity           f32.Point
+	GrabForce              float32
 
 	// 5D Statistical Manifold [x, y, z, vx, vy]
 	History5D [128][5]float32
@@ -215,6 +221,29 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						dScl := (1.0 - tz/1500.0); if dScl < 0.5 { dScl = 0.5 }
 						
 						resF := float32(0)
+						
+						// --- Siphon Logic (Grabbing) ---
+						if s.IsGrabbing {
+							gdx, gdy := s.GrabPos.X-(bSx+p.X), s.GrabPos.Y-(bSy+p.Y)
+							gDist2 := gdx*gdx + gdy*gdy
+							if gDist2 < 300*300 {
+								gDist := float32(math.Sqrt(float64(gDist2)))
+								// Nonlinear attraction: peaks at radius 80, then plateaus
+								attraction := (1.0 - gDist/300.0) * s.GrabForce / p.Mass
+								if gDist > 0.1 {
+									p.VX += (gdx / gDist) * attraction * 3.5
+									p.VY += (gdy / gDist) * attraction * 3.5
+								}
+								// Capture zone: Inherit grab velocity
+								if gDist < 60 {
+									influence := (1.0 - gDist/60.0)
+									p.VX = p.VX*(1-influence*0.1) + s.GrabVelocity.X*influence*0.2
+									p.VY = p.VY*(1-influence*0.1) + s.GrabVelocity.Y*influence*0.2
+									resF += influence * 2.0 // Visual glow
+								}
+							}
+						}
+
 						if s.GazeActive {
 							for _, fp := range fP {
 								if fp.X == 0 { continue }
@@ -229,7 +258,11 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								}
 							}
 						}
-						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), scale: scale * dScl, force: resF, mDist: mDist, colorIdx: p.ColorIdx}
+						
+						pScl := float32(1.0)
+						if resF > 0.5 { pScl = 1.0 + (resF-0.5)*0.5 }
+						
+						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), scale: scale * dScl * pScl, force: resF, mDist: mDist, colorIdx: p.ColorIdx}
 					}
 				}(g*batchSize, (g+1)*batchSize)
 			}
