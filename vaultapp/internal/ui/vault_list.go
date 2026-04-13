@@ -226,6 +226,35 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						
 						resF := float32(0)
 						
+						// --- Neural Hand Reflections (Grid Interaction) ---
+						if s.GridActive {
+							gridR := int(bSy / (float32(gtx.Constraints.Max.Y) / 16.0))
+							gridC := int(bSx / (float32(gtx.Constraints.Max.X) / 20.0))
+							
+							if gridR >= 0 && gridR < 16 && gridC >= 0 && gridC < 20 {
+								s.MotionMu.Lock()
+								mIntensity := s.MotionGrid[gridR][gridC]
+								s.MotionMu.Unlock()
+								
+								if mIntensity > 0.1 {
+									// Tactile Adhesion: Particles "stick" to moving regions
+									adhesion := mIntensity * 4.0 / p.Mass
+									p.VX += (s.GrabVelocity.X * 0.15) * adhesion // Use global velocity for momentum
+									
+									// Jitter/Resonance for tactile feel
+									p.VX += (rand.Float32() - 0.5) * 2.0 * mIntensity
+									p.VY += (rand.Float32() - 0.5) * 2.0 * mIntensity
+									
+									if mIntensity > 0.5 {
+										// Actual Grab feel: dampen velocity to "hold"
+										p.VX *= 0.8
+										p.VY *= 0.8
+									}
+									resF += mIntensity * 3.0
+								}
+							}
+						}
+
 						// --- Siphon Logic (Grabbing) ---
 						if s.IsGrabbing {
 							gdx, gdy := s.GrabPos.X-(bSx+p.X), s.GrabPos.Y-(bSy+p.Y)
