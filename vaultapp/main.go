@@ -466,6 +466,10 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		ScaleFactor: 1.1,
 	}
 
+	// Motion Analysis State
+	var prevPixels []uint8
+	gridRows, gridCols := 16, 20
+	
 	for {
 		f, release, err := reader.Read()
 		if err != nil {
@@ -476,6 +480,55 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		pixels := pigo.RgbToGrayscale(f)
 		rows := f.Bounds().Max.Y
 		cols := f.Bounds().Max.X
+
+		// --- NEURAL MOTION ANALYSIS (Tactile Grid) ---
+		if prevPixels != nil && len(prevPixels) == len(pixels) {
+			state.MotionMu.Lock()
+			state.GridActive = true
+			
+			cellH := rows / gridRows
+			cellW := cols / gridCols
+			
+			for r := 0; r < gridRows; r++ {
+				for c := 0; c < gridCols; c++ {
+					diffSum := uint32(0)
+					count := uint32(0)
+					
+					// Sub-sampling for performance
+					for y := r * cellH; y < (r+1)*cellH; y += 4 {
+						for x := c * cellW; x < (c+1)*cellW; x += 4 {
+							idx := y*cols + x
+							d := int(pixels[idx]) - int(prevPixels[idx])
+							if d < 0 { d = -d }
+							if d > 25 { // Sensitivity threshold
+								diffSum += uint32(d)
+							}
+							count++
+						}
+					}
+					
+					intensity := float32(diffSum) / float32(count*50.0) 
+					if intensity > 1.0 { intensity = 1.0 }
+					
+					// Mirror horizontally for natural feel
+					mirroredC := gridCols - 1 - c
+					
+					// Temporal smoothing (Persistence)
+					oldVal := state.MotionGrid[r][mirroredC]
+					if intensity > oldVal {
+						state.MotionGrid[r][mirroredC] = intensity
+					} else {
+						state.MotionGrid[r][mirroredC] = oldVal * 0.85 // Fade out
+					}
+				}
+			}
+			state.MotionMu.Unlock()
+		}
+		
+		if len(prevPixels) != len(pixels) {
+			prevPixels = make([]uint8, len(pixels))
+		}
+		copy(prevPixels, pixels)
 
 		pigoParams.ImageParams = pigo.ImageParams{
 			Pixels: pixels,

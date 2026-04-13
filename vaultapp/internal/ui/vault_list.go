@@ -61,6 +61,10 @@ type AppState struct {
 	NeuralSurface          widget.Clickable
 	FrameCount             int
 	FaceMu                 sync.Mutex
+	MotionMu               sync.Mutex
+	MotionGrid             [16][20]float32 // 16 rows, 20 columns
+	MotionVelocity         [16][20]f32.Point
+	GridActive             bool
 	MemoryAnchors          []int        // Indices of particles that represent memories
 	FocusIndex             int          // Current focused memory index (-1 if none)
 	FocusStrength          float32      // How "awakened" the focus is (0.0 to 1.0)
