@@ -170,22 +170,47 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 			}
 			if xev, ok := ev.(pointer.Event); ok {
 				if xev.Kind == pointer.Move || xev.Kind == pointer.Drag {
+					v := f32.Pt(xev.Position.X-state.MousePos.X, xev.Position.Y-state.MousePos.Y)
+					state.MouseVelocity = f32.Pt(state.MouseVelocity.X*0.7+v.X*0.3, state.MouseVelocity.Y*0.7+v.Y*0.3)
 					state.MousePos = xev.Position
 				}
-				if xev.Kind == pointer.Press && state.CurrentScreen == ui.ScreenVaultList {
-					if state.IsSingularityFocused {
-						state.CurrentScreen = ui.ScreenCompose
-						w.Invalidate()
-					} else if state.NeuralMemory != nil {
-						m := state.NeuralMemory
-						// 記憶への同調
-						state.Ritual.ActiveMemory = m
-						state.CurrentScreen = ui.ScreenRitual
-						w.Invalidate()
+				
+				if xev.Kind == pointer.Press {
+					state.IsGrabbing = true
+					state.GrabForce = 1.0
+					if state.CurrentScreen == ui.ScreenVaultList {
+						if state.IsSingularityFocused {
+							state.CurrentScreen = ui.ScreenCompose
+							w.Invalidate()
+						} else if state.NeuralMemory != nil {
+							m := state.NeuralMemory
+							// 記憶への同調
+							state.Ritual.ActiveMemory = m
+							state.CurrentScreen = ui.ScreenRitual
+							w.Invalidate()
+						}
 					}
+				}
+				
+				if xev.Kind == pointer.Release {
+					state.IsGrabbing = false
+					state.GrabForce = 0
 				}
 			}
 		}
+	}
+	
+	// Map interaction center for physics
+	if state.IsGrabbing {
+		state.GrabPos = state.MousePos
+		state.GrabVelocity = state.MouseVelocity
+	} else if state.GazeActive && state.FaceScale > 1.2 {
+		// Leaning in triggers camera-based grabbing
+		state.IsGrabbing = true
+		state.GrabPos = state.GazePos
+		state.GrabVelocity = state.GazeVelocity
+		state.GrabForce = (state.FaceScale - 1.2) * 2.0
+		if state.GrabForce > 1.5 { state.GrabForce = 1.5 }
 	}
 
 	// Compose Screen Logic
