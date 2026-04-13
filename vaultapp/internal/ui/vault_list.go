@@ -9,6 +9,7 @@ import (
 
 	"gioui.org/f32"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
@@ -59,6 +60,11 @@ type AppState struct {
 	NeuralSurface          widget.Clickable
 	FrameCount             int
 	FaceMu                 sync.Mutex
+	MemoryAnchors          []int        // Indices of particles that represent memories
+	FocusIndex             int          // Current focused memory index (-1 if none)
+	FocusStrength          float32      // How "awakened" the focus is (0.0 to 1.0)
+	SingularityPos         f32.Point    // Position of the central singularity
+	IsSingularityFocused   bool
 
 	// 5D Statistical Manifold [x, y, z, vx, vy]
 	History5D [128][5]float32
@@ -90,6 +96,19 @@ func (s *AppState) initNeuralSpace() {
 		p.Drag = 0.94 + rand.Float32()*0.02
 		p.ColorIdx = rand.Intn(len(ColorDataFragments))
 	}
+	
+	// Assign Memory Anchors
+	s.MemoryAnchors = nil
+	if len(s.Memories) > 0 {
+		for i := 0; i < len(s.Memories); i++ {
+			// Spread them out by picking random indices, or specific patterns
+			idx := (i * (TotalParticles / (len(s.Memories) + 1))) % TotalParticles
+			s.MemoryAnchors = append(s.MemoryAnchors, idx)
+		}
+	}
+	s.SingularityPos = f32.Pt(0, 0) // Center of galaxy local coords
+	s.FocusIndex = -1
+	
 	s.InitOnce = true
 	fmt.Println("GALAXY HEARTBEAT: HYPER-FLUID POINT-BETA")
 }
@@ -139,12 +158,33 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 			center := f32.Pt(float32(gtx.Constraints.Max.X)/2, float32(gtx.Constraints.Max.Y)/2)
 			focalLength := float32(1000)
 			cosR, sinR := float32(math.Cos(float64(s.Rotation))), float32(math.Sin(float64(s.Rotation)))
-			s.Rotation += 0.0025
 
 			s.FaceMu.Lock(); fP, fS := s.FacePoints, s.FaceScale; s.FaceMu.Unlock()
 			bRad := float32(85.0) * fS * (1.0 + s.PulseStrength*0.3)
 			angle := float32(math.Atan2(float64(s.EigenV[1]), float64(s.EigenV[0])))
 			csA, snA := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
+
+			// --- Focus Logic (Gaze & Mouse) ---
+			interactionCenters := []f32.Point{tPos}
+			if s.GazeActive {
+				interactionCenters = append(interactionCenters, s.GazePos)
+			}
+
+			newFocusIdx := -1
+			minDist := float32(1000000.0)
+			
+			// Check Singularity (Center)
+			sPos := center // Singularity is at the center in screen space for now
+			for _, ic := range interactionCenters {
+				dix, diy := ic.X-sPos.X, ic.Y-sPos.Y
+				d2 := dix*dix + diy*diy
+				if d2 < 40*40 { // 40px radius for singularity
+					s.IsSingularityFocused = true
+					break
+				} else {
+					s.IsSingularityFocused = false
+				}
+			}
 
 			var wg sync.WaitGroup
 			numG := 4; batchSize := TotalParticles / numG
@@ -181,7 +221,8 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								fD2 := fdx*fdx + fdy*fdy
 								if fD2 < bRad*bRad {
 									fdst := float32(math.Sqrt(float64(fD2)))
-									lF := (1.0 - fdst/bRad) * 6.0 / p.Mass
+									// Camera Resonance: Stronger attraction/repulsion based on face points
+									lF := (1.0 - fdst/bRad) * 8.5 / p.Mass
 									p.VX += (fdx / (fdst+0.1)) * lF; p.VY += (fdy / (fdst+0.1)) * lF
 									if lF > resF { resF = lF }
 								}
@@ -192,6 +233,32 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				}(g*batchSize, (g+1)*batchSize)
 			}
 			wg.Wait()
+			
+			// Post-Physics: Determine Focus
+			for i, aIdx := range s.MemoryAnchors {
+				apt := pts[aIdx]
+				for _, ic := range interactionCenters {
+					dx, dy := ic.X-apt.pos.X, ic.Y-apt.pos.Y
+					d2 := dx*dx + dy*dy
+					if d2 < 60*60 && d2 < minDist {
+						minDist = d2
+						newFocusIdx = i
+					}
+				}
+			}
+			if newFocusIdx != s.FocusIndex {
+				s.FocusIndex = newFocusIdx
+				if newFocusIdx != -1 {
+					s.NeuralMemory = s.Memories[newFocusIdx]
+				} else {
+					s.NeuralMemory = nil
+				}
+			}
+			if s.FocusIndex != -1 {
+				s.FocusStrength = s.FocusStrength*0.8 + 0.2
+			} else {
+				s.FocusStrength *= 0.8
+			}
 
 			// --- 2. SECURE SEQUENTIAL BATCHING (Immortality Guard) ---
 			for cIdx := 0; cIdx <= len(ColorDataFragments); cIdx++ {
@@ -199,8 +266,20 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				isBegun := false
 				glowMode := cIdx == len(ColorDataFragments)
 				
-				for _, pt := range pts {
+				for i, pt := range pts {
+					// Memory Anchor Highlights
 					isGlow := pt.mDist < 5.0 || pt.force > 0.4
+					
+					// Special glow for focused anchor
+					isFocusedAnchor := false
+					for _, aIdx := range s.MemoryAnchors {
+						if aIdx == i && s.FocusIndex != -1 && s.MemoryAnchors[s.FocusIndex] == aIdx {
+							isFocusedAnchor = true
+							break
+						}
+					}
+					if isFocusedAnchor { isGlow = true }
+
 					if (glowMode && isGlow) || (!glowMode && !isGlow && pt.colorIdx == cIdx) {
 						if !isBegun {
 							pth.Begin(gtx.Ops)
@@ -208,7 +287,8 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						}
 						
 						sz := 1.8 * pt.scale 
-						if sz > 4.5 { sz = 4.5 }
+						if isFocusedAnchor { sz *= 2.5 }
+						if sz > 6.5 { sz = 6.5 }
 						if glowMode { sz *= 1.8 }
 						
 						hSz := sz * 1.5
@@ -227,9 +307,60 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						col = ColorDataFragments[cIdx]
 						col.A = 160
 					}
-					// CRITICAL: End() is now guaranteed to be called only if Begin() was.
 					paint.FillShape(gtx.Ops, col, clip.Outline{Path: pth.End()}.Op())
 				}
+			}
+
+			// --- 3. FLOATING TYPOGRAPHY (Zero-UI Awakening) ---
+			if s.FocusIndex != -1 && s.FocusStrength > 0.1 {
+				m := s.Memories[s.FocusIndex]
+				apt := pts[s.MemoryAnchors[s.FocusIndex]]
+				
+				col := ColorPrimary
+				col.A = uint8(255 * s.FocusStrength)
+				
+				// Title
+				op.Offset(f32.Pt(apt.pos.X+20, apt.pos.Y-10)).Add(gtx.Ops)
+				titleLabel := material.H5(s.Theme, m.Title)
+				titleLabel.Color = col
+				titleLabel.Layout(gtx)
+				
+				// Hint/Aura
+				op.Offset(f32.Pt(0, 30)).Add(gtx.Ops)
+				hintLabel := material.Body2(s.Theme, string(m.Aura) + " resonance detected...")
+				hintLabel.Color = color.NRGBA{R: 200, G: 200, B: 200, A: col.A}
+				hintLabel.Layout(gtx)
+				
+				op.Offset(f32.Pt(0, -20)).Add(gtx.Ops) // Reset offset for next potential drawings
+			}
+
+			// --- 4. SINGULARITY (The Void of Creation) ---
+			{
+				sCol := ColorPrimary
+				if s.IsSingularityFocused {
+					sCol = color.NRGBA{255, 255, 255, 255}
+					// Singularity Typography
+					op.Offset(f32.Pt(center.X - 60, center.Y + 60)).Add(gtx.Ops)
+					composeLabel := material.Body1(s.Theme, "DESCEND INTO VOID")
+					composeLabel.Color = color.NRGBA{255, 255, 255, 255}
+					composeLabel.Layout(gtx)
+				}
+				
+				// Draw Singularity (Rotating Cross)
+				var sPth clip.Path
+				sPth.Begin(gtx.Ops)
+				rotS := s.Rotation * 2.0
+				csS, snS := float32(math.Cos(float64(rotS))), float32(math.Sin(float64(rotS)))
+				
+				sz := float32(15.0)
+				if s.IsSingularityFocused { sz = 25.0 }
+				
+				sPth.MoveTo(f32.Pt(center.X + sz*csS, center.Y + sz*snS))
+				sPth.LineTo(f32.Pt(center.X - sz*snS, center.Y + sz*csS))
+				sPth.LineTo(f32.Pt(center.X - sz*csS, center.Y - sz*snS))
+				sPth.LineTo(f32.Pt(center.X + sz*snS, center.Y - sz*csS))
+				sPth.Close()
+				paint.FillShape(gtx.Ops, sCol, clip.Outline{Path: sPth.End()}.Op())
 			}
 
 			return layout.Dimensions{Size: gtx.Constraints.Max}

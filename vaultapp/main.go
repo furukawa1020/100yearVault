@@ -151,10 +151,9 @@ func loop(w *app.Window) error {
 }
 
 func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app.Window) {
-	// Global: New Vault Button
-	if state.NewVaultBtn.Clicked(gtx) {
-		state.CurrentScreen = ui.ScreenCompose
-		w.Invalidate()
+	// Singularity interaction (Gaze/Mouse based Zero-UI)
+	if state.CurrentScreen == ui.ScreenVaultList && state.IsSingularityFocused {
+		// No button needed, just check for Press event in the pointer loop below
 	}
 
 	// イベント・フィルタリング：マウス座標とクリックの完全手動捕捉
@@ -174,7 +173,10 @@ func updateLogic(gtx layout.Context, state *ui.AppState, store *db.Store, w *app
 					state.MousePos = xev.Position
 				}
 				if xev.Kind == pointer.Press && state.CurrentScreen == ui.ScreenVaultList {
-					if state.NeuralMemory != nil {
+					if state.IsSingularityFocused {
+						state.CurrentScreen = ui.ScreenCompose
+						w.Invalidate()
+					} else if state.NeuralMemory != nil {
 						m := state.NeuralMemory
 						// 記憶への同調
 						state.Ritual.ActiveMemory = m
