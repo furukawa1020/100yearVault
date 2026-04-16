@@ -239,23 +239,37 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								mIntensity := s.MotionGrid[gridR][gridC]
 								s.MotionMu.Unlock()
 								
-								if mIntensity > 0.1 {
-									// Tactile Adhesion: Particles "stick" to moving regions
-									mVel := s.MotionVelocity[gridR][gridC]
-									adhesion := mIntensity * 6.0 / p.Mass
-									p.VX += mVel.X * adhesion
-									p.VY += mVel.Y * adhesion
+								s.PresenceMu.Lock()
+								pIntensity := s.PresenceGrid[gridR][gridC]
+								s.PresenceMu.Unlock()
+
+								if pIntensity > 0.1 || mIntensity > 0.1 {
+									// Gravitational Capture: Particles "swarm" to hand presence
+									captureForce := (pIntensity * 12.0) + (mIntensity * 4.0)
+									
+									// Target: Grid cell center in screen space
+									targetX := (float32(gridC) + 0.5) * (float32(gtx.Constraints.Max.X) / 20.0)
+									targetY := (float32(gridR) + 0.5) * (float32(gtx.Constraints.Max.Y) / 16.0)
+									
+									dx, dy := targetX-(bSx+p.X), targetY-(bSy+p.Y)
+									dist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+									
+									if dist > 1.0 {
+										p.VX += (dx / dist) * captureForce / p.Mass
+										p.VY += (dy / dist) * captureForce / p.Mass
+									}
+
+									// Virtual Friction: Captured particles stay in the swarm
+									if pIntensity > 0.5 {
+										p.VX *= 0.6
+										p.VY *= 0.6
+									}
 									
 									// Jitter/Resonance for tactile feel
-									p.VX += (rand.Float32() - 0.5) * 2.5 * mIntensity
-									p.VY += (rand.Float32() - 0.5) * 2.5 * mIntensity
+									p.VX += (rand.Float32() - 0.5) * 3.0 * pIntensity
+									p.VY += (rand.Float32() - 0.5) * 3.0 * pIntensity
 									
-									if mIntensity > 0.5 {
-										// Actual Grab feel: dampen velocity to "hold"
-										p.VX *= 0.8
-										p.VY *= 0.8
-									}
-									resF += mIntensity * 3.0
+									resF += pIntensity * 5.0
 								}
 							}
 						}
@@ -298,7 +312,11 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						}
 						
 						pScl := float32(1.0)
-						if resF > 0.5 { pScl = 1.0 + (resF-0.5)*0.5 }
+						if resF > 0.5 { 
+							// Massive saturation for "captured" particles
+							pScl = 1.0 + (resF * 0.8)
+							if pScl > 5.0 { pScl = 5.0 }
+						}
 						
 						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), scale: scale * dScl * pScl, force: resF, mDist: mDist, colorIdx: p.ColorIdx}
 					}
