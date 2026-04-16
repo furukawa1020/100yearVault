@@ -477,65 +477,107 @@ func startWebcamGazeTracking(state *ui.AppState) {
 			break
 		}
 
+		var faceCenter f32.Point
+		var faceSize f32.Point
+
 		pixels := pigo.RgbToGrayscale(f)
 		rows := f.Bounds().Max.Y
 		cols := f.Bounds().Max.X
 
-		// --- NEURAL MOTION ANALYSIS (Tactile Grid with Face Masking) ---
+		pigoParams.ImageParams = pigo.ImageParams{
+			Pixels: pixels,
+			Rows:   rows,
+			Cols:   cols,
+			Dim:    cols,
+		}
+
+		results := classifier.RunCascade(pigoParams, 0.0)
+		results = classifier.ClusterDetections(results, 0.2)
+
+		if len(results) > 0 {
+			face := results[0]
+			if face.Q > 5.0 {
+				faceCenter = f32.Pt(float32(face.Col), float32(face.Row))
+				faceSize = f32.Pt(float32(face.Scale)*1.2, float32(face.Scale)*1.5) // Mask slightly larger than face
+				nx := faceCenter.X / float32(cols)
+				ny := faceCenter.Y / float32(rows)
+				targetX := nx * 1000.0 
+				targetY := ny * 800.0 
+				vx := targetX - state.GazePos.X
+				vy := targetY - state.GazePos.Y
+				state.FaceMu.Lock()
+				for i := len(state.FaceHistory) - 1; i > 0; i-- {
+					copy(state.FaceHistory[i], state.FaceHistory[i-1])
+				}
+				copy(state.FaceHistory[0], state.FacePoints)
+				state.GazeVelocity.X = state.GazeVelocity.X*0.6 + vx*0.4
+				state.GazeVelocity.Y = state.GazeVelocity.Y*0.6 + vy*0.4
+				speed := float32(math.Sqrt(float64(vx*vx + vy*vy)))
+				if speed > 20 { 
+					state.PulseStrength = state.PulseStrength*0.8 + (speed/50.0)*0.2
+					if state.PulseStrength > 1.5 { state.PulseStrength = 1.5 }
+				} else { state.PulseStrength *= 0.95 }
+				state.GazePos.X += vx * 0.35
+				state.GazePos.Y += vy * 0.35
+				rawScale := float32(face.Scale)
+				targetFaceScale := rawScale / 250.0 
+				if targetFaceScale < 0.5 { targetFaceScale = 0.5 }
+				if targetFaceScale > 2.5 { targetFaceScale = 2.5 }
+				state.FaceScale = state.FaceScale*0.9 + targetFaceScale*0.1
+				state.GazeActive = true
+				if len(state.FacePoints) < 4 { state.FacePoints = make([]f32.Point, 4) }
+				state.FaceMu.Unlock()
+				fScale := float32(face.Scale)
+				state.FaceMu.Lock()
+				if puplocCascade != nil {
+					puplocBase := pigo.Puploc{Row: face.Row, Col: face.Col, Scale: float32(face.Scale)}
+					lp := puplocCascade.RunDetector(puplocBase, pigoParams.ImageParams, 0.0, false)
+					if lp != nil { state.FacePoints[0] = f32.Pt(float32(lp.Col)/float32(cols)*1000.0, float32(lp.Row)/float32(rows)*800.0) } else { state.FacePoints[0] = f32.Pt(targetX-fScale*0.22, targetY-fScale*0.15) }
+					rp := puplocCascade.RunDetector(puplocBase, pigoParams.ImageParams, 0.0, true)
+					if rp != nil { state.FacePoints[1] = f32.Pt(float32(rp.Col)/float32(cols)*1000.0, float32(rp.Row)/float32(rows)*800.0) } else { state.FacePoints[1] = f32.Pt(targetX+fScale*0.22, targetY-fScale*0.15) }
+				} else { state.FacePoints[0] = f32.Pt(targetX-fScale*0.22, targetY-fScale*0.15); state.FacePoints[1] = f32.Pt(targetX+fScale*0.22, targetY-fScale*0.15) }
+				state.FacePoints[2] = f32.Pt(targetX, targetY+fScale*0.05)
+				state.FacePoints[3] = f32.Pt(targetX, targetY+fScale*0.3)
+				state.FaceMu.Unlock()
+			}
+		}
+
+		// --- NEURAL MOTION ANALYSIS ---
 		if prevPixels != nil && len(prevPixels) == len(pixels) {
 			state.MotionMu.Lock()
 			state.GridActive = true
-			
 			cellH := rows / gridRows
 			cellW := cols / gridCols
-
-			// Pre-calculate face mask bounds in grid coords
 			var fR0, fR1, fC0, fC1 int
 			if faceSize.X > 0 {
-				fR0 = int((faceCenter.Y - faceSize.Y/2.0) / float32(cellH))
-				fR1 = int((faceCenter.Y + faceSize.Y/2.0) / float32(cellH))
-				fC0 = int((faceCenter.X - faceSize.X/2.0) / float32(cellW))
-				fC1 = int((faceCenter.X + faceSize.X/2.0) / float32(cellW))
+				fR0 = int((faceCenter.Y-faceSize.Y/2.0)/float32(cellH)); fR1 = int((faceCenter.Y+faceSize.Y/2.0)/float32(cellH)); fC0 = int((faceCenter.X-faceSize.X/2.0)/float32(cellW)); fC1 = int((faceCenter.X+faceSize.X/2.0)/float32(cellW))
 			}
-			
 			for r := 0; r < gridRows; r++ {
 				for c := 0; c < gridCols; c++ {
-					// Apply Face Mask: Skip if cell is inside face region
 					if faceSize.X > 0 && r >= fR0 && r <= fR1 && c >= fC0 && c <= fC1 {
 						mirroredC := gridCols - 1 - c
 						state.MotionGrid[r][mirroredC] = 0
 						continue
 					}
-
-					diffSum := uint32(0)
-					count := uint32(0)
-					
-					// Sub-sampling for performance
+					diffSum, count := uint32(0), uint32(0)
 					for y := r * cellH; y < (r+1)*cellH; y += 4 {
 						for x := c * cellW; x < (c+1)*cellW; x += 4 {
 							idx := y*cols + x
 							d := int(pixels[idx]) - int(prevPixels[idx])
 							if d < 0 { d = -d }
-							if d > 25 { // Sensitivity threshold
-								diffSum += uint32(d)
-							}
+							if d > 25 { diffSum += uint32(d) }
 							count++
 						}
 					}
-					
-					intensity := float32(diffSum) / float32(count*50.0) 
+					intensity := float32(diffSum) / float32(count*50.0)
 					if intensity > 1.0 { intensity = 1.0 }
-					
-					// Mirror horizontally for natural feel
 					mirroredC := gridCols - 1 - c
-					
-					// Temporal smoothing (Persistence)
 					oldVal := state.MotionGrid[r][mirroredC]
 					if intensity > oldVal {
 						state.MotionGrid[r][mirroredC] = intensity
 						state.MotionVelocity[r][mirroredC] = f32.Pt(state.GazeVelocity.X*0.2, state.GazeVelocity.Y*0.2)
 					} else {
-						state.MotionGrid[r][mirroredC] = oldVal * 0.85 
+						state.MotionGrid[r][mirroredC] = oldVal * 0.85
 						state.MotionVelocity[r][mirroredC].X *= 0.8
 						state.MotionVelocity[r][mirroredC].Y *= 0.8
 					}
@@ -548,115 +590,8 @@ func startWebcamGazeTracking(state *ui.AppState) {
 			prevPixels = make([]uint8, len(pixels))
 		}
 		copy(prevPixels, pixels)
-
-		pigoParams.ImageParams = pigo.ImageParams{
-			Pixels: pixels,
-			Rows:   rows,
-			Cols:   cols,
-			Dim:    cols,
-		}
-
-		results := classifier.RunCascade(pigoParams, 0.0)
-		results = classifier.ClusterDetections(results, 0.2)
-
-		var faceCenter f32.Point
-		var faceSize f32.Point
-
-		if len(results) > 0 {
-			face := results[0]
-			if face.Q > 5.0 {
-				faceCenter = f32.Pt(float32(face.Col), float32(face.Row))
-				faceSize = f32.Pt(float32(face.Scale)*1.2, float32(face.Scale)*1.5) // Mask slightly larger than face
-				
-				// Base Face Center (Normalized)
-				nx := faceCenter.X / float32(cols)
-				ny := faceCenter.Y / float32(rows)
-				
-				targetX := nx * 1000.0 
-				targetY := ny * 800.0 
-				
-				vx := targetX - state.GazePos.X
-				vy := targetY - state.GazePos.Y
-				
-				state.FaceMu.Lock()
-				// Shift history (Circular buffer style)
-				for i := len(state.FaceHistory) - 1; i > 0; i-- {
-					copy(state.FaceHistory[i], state.FaceHistory[i-1])
-				}
-				copy(state.FaceHistory[0], state.FacePoints)
-
-				state.GazeVelocity.X = state.GazeVelocity.X*0.6 + vx*0.4
-				state.GazeVelocity.Y = state.GazeVelocity.Y*0.6 + vy*0.4
-				
-				// Pulse Detection: Rapid head movement
-				speed := float32(math.Sqrt(float64(vx*vx + vy*vy)))
-				if speed > 20 { 
-					state.PulseStrength = state.PulseStrength*0.8 + (speed/50.0)*0.2
-					if state.PulseStrength > 1.5 { state.PulseStrength = 1.5 }
-				} else {
-					state.PulseStrength *= 0.95
-				}
-
-				state.GazePos.X += vx * 0.35 // Snappier tracking
-				state.GazePos.Y += vy * 0.35
-				
-				// --- Z-Axis (Depth) Sensing ---
-				rawScale := float32(face.Scale)
-				targetFaceScale := rawScale / 250.0 
-				if targetFaceScale < 0.5 { targetFaceScale = 0.5 }
-				if targetFaceScale > 2.5 { targetFaceScale = 2.5 }
-				state.FaceScale = state.FaceScale*0.9 + targetFaceScale*0.1
-
-				state.GazeActive = true
-
-				if len(state.FacePoints) < 4 {
-					state.FacePoints = make([]f32.Point, 4)
-				}
-				state.FaceMu.Unlock()
-
-				fScale := float32(face.Scale)
-				
-				state.FaceMu.Lock()
-				// 1 & 2: Eyes 
-				if puplocCascade != nil {
-					puplocBase := pigo.Puploc{
-						Row:   face.Row,
-						Col:   face.Col,
-						Scale: float32(face.Scale),
-					}
-					lp := puplocCascade.RunDetector(puplocBase, pigoParams.ImageParams, 0.0, false)
-					if lp != nil {
-						state.FacePoints[0] = f32.Pt(float32(lp.Col)/float32(cols)*1000.0, float32(lp.Row)/float32(rows)*800.0)
-					} else {
-						state.FacePoints[0] = f32.Pt(targetX-fScale*0.22, targetY-fScale*0.15)
-					}
-					rp := puplocCascade.RunDetector(puplocBase, pigoParams.ImageParams, 0.0, true)
-					if rp != nil {
-						state.FacePoints[1] = f32.Pt(float32(rp.Col)/float32(cols)*1000.0, float32(rp.Row)/float32(rows)*800.0)
-					} else {
-						state.FacePoints[1] = f32.Pt(targetX+fScale*0.22, targetY-fScale*0.15)
-					}
-				} else {
-					state.FacePoints[0] = f32.Pt(targetX-fScale*0.22, targetY-fScale*0.15)
-					state.FacePoints[1] = f32.Pt(targetX+fScale*0.22, targetY-fScale*0.15)
-				}
-
-				// 3: Nose (Center of face usually)
-				state.FacePoints[2] = f32.Pt(targetX, targetY+fScale*0.05)
-
-				// 4: Mouth (Lower part)
-				state.FacePoints[3] = f32.Pt(targetX, targetY+fScale*0.3)
-				state.FaceMu.Unlock()
-
-			} else {
-				state.GazeActive = false
-			}
-		} else {
-			state.GazeActive = false
-		}
 		release()
 		
-		// Prevent CPU hogging
 		time.Sleep(30 * time.Millisecond)
 	}
 }
