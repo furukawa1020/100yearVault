@@ -466,8 +466,10 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		ScaleFactor: 1.1,
 	}
 
-	// Motion Analysis State
+	// Motion & Presence Analysis State
 	var prevPixels []uint8
+	var backgroundPixels []uint8
+	frameCount := 0
 	gridRows, gridCols := 16, 20
 	
 	for {
@@ -480,6 +482,30 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		pixels := pigo.RgbToGrayscale(f)
 		rows := f.Bounds().Max.Y
 		cols := f.Bounds().Max.X
+		frameCount++
+
+		// Initialize Background
+		if backgroundPixels == nil || len(backgroundPixels) != len(pixels) {
+			backgroundPixels = make([]uint8, len(pixels))
+			copy(backgroundPixels, pixels)
+		}
+
+		// Fast Calibration for first 60 frames (approx 2s)
+		if frameCount < 60 {
+			state.IsCalibrating = true
+			if frameCount % 10 == 0 {
+				fmt.Printf("CALIBRATING MIRROR... [%d/60]\n", frameCount)
+			}
+			for i := range backgroundPixels {
+				backgroundPixels[i] = uint8(float32(backgroundPixels[i])*0.7 + float32(pixels[i])*0.3)
+			}
+		} else {
+			state.IsCalibrating = false
+			// Slow Background Update (adapt to light changes)
+			for i := 0; i < len(backgroundPixels); i += 8 { // Skip for perf
+				backgroundPixels[i] = uint8(float32(backgroundPixels[i])*0.999 + float32(pixels[i])*0.001)
+			}
+		}
 
 		// --- NEURAL MOTION ANALYSIS (Tactile Grid) ---
 		if prevPixels != nil && len(prevPixels) == len(pixels) {
@@ -517,15 +543,33 @@ func startWebcamGazeTracking(state *ui.AppState) {
 					oldVal := state.MotionGrid[r][mirroredC]
 					if intensity > oldVal {
 						state.MotionGrid[r][mirroredC] = intensity
-						
-						// Calculate local velocity (heuristic based on shift)
-						// For now, simpler: use global change if intensity is high
 						state.MotionVelocity[r][mirroredC] = f32.Pt(state.GazeVelocity.X*0.2, state.GazeVelocity.Y*0.2)
 					} else {
-						state.MotionGrid[r][mirroredC] = oldVal * 0.85 // Fade out
+						state.MotionGrid[r][mirroredC] = oldVal * 0.85 
 						state.MotionVelocity[r][mirroredC].X *= 0.8
 						state.MotionVelocity[r][mirroredC].Y *= 0.8
 					}
+
+					// Presence Detection (Background Subtraction)
+					presenceSum := uint32(0)
+					if !state.IsCalibrating {
+						for y := r * cellH; y < (r+1)*cellH; y += 8 {
+							for x := c * cellW; x < (c+1)*cellW; x += 8 {
+								idx := y*cols + x
+								pd := int(pixels[idx]) - int(backgroundPixels[idx])
+								if pd < 0 { pd = -pd }
+								if pd > 35 { // Presence threshold
+									presenceSum += uint32(pd)
+								}
+							}
+						}
+					}
+					pIntensity := float32(presenceSum) / float32((cellH/8)*(cellW/8)*40.0)
+					if pIntensity > 1.0 { pIntensity = 1.0 }
+					
+					state.PresenceMu.Lock()
+					state.PresenceGrid[r][mirroredC] = state.PresenceGrid[r][mirroredC]*0.7 + pIntensity*0.3
+					state.PresenceMu.Unlock()
 				}
 			}
 			state.MotionMu.Unlock()
