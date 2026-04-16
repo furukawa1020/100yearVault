@@ -338,10 +338,15 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 					for c := 0; c < 20; c++ {
 						m := s.MotionGrid[r][c]
 						if m > 0.1 {
-							rect := f32.Rect(float32(c)*cellW, float32(r)*cellH, float32(c+1)*cellW, float32(r+1)*cellH)
+							rect := image.Rect(
+								int(float32(c)*cellW), 
+								int(float32(r)*cellH), 
+								int(float32(c+1)*cellW), 
+								int(float32(r+1)*cellH),
+							)
 							alpha := uint8(m * 60)
 							col := color.NRGBA{R: 0, G: 200, B: 255, A: alpha}
-							paint.FillShape(gtx.Ops, col, clip.Rect(rect.Round()).Op())
+							paint.FillShape(gtx.Ops, col, clip.Rect(rect).Op())
 						}
 					}
 				}
