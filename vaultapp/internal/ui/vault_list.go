@@ -228,10 +228,10 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						
 						// --- Neural Hand Reflections (Grid Interaction) ---
 						if s.GridActive {
-							gridR := int(bSy / (float32(gtx.Constraints.Max.Y) / 16.0))
-							gridC := int(bSx / (float32(gtx.Constraints.Max.X) / 20.0))
+							gridR := int(bSy / (float32(gtx.Constraints.Max.Y) / 32.0))
+							gridC := int(bSx / (float32(gtx.Constraints.Max.X) / 40.0))
 							
-							if gridR >= 0 && gridR < 16 && gridC >= 0 && gridC < 20 {
+							if gridR >= 0 && gridR < 32 && gridC >= 0 && gridC < 40 {
 								s.MotionMu.Lock()
 								mIntensity := s.MotionGrid[gridR][gridC]
 								mVel := s.MotionVelocity[gridR][gridC]
@@ -329,24 +329,32 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				s.FocusStrength *= 0.8
 			}
 
-			// --- 0. GHOST SILHOUETTE LAYER (The Hand Appears) ---
+			// --- 0. GHOST SILHOUETTE LAYER (Soft Refined Hands) ---
 			if s.GridActive {
-				cellW := float32(gtx.Constraints.Max.X) / 20.0
-				cellH := float32(gtx.Constraints.Max.Y) / 16.0
+				cellW := float32(gtx.Constraints.Max.X) / 40.0
+				cellH := float32(gtx.Constraints.Max.Y) / 32.0
 				s.MotionMu.Lock()
-				for r := 0; r < 16; r++ {
-					for c := 0; c < 20; c++ {
+				for r := 0; r < 32; r++ {
+					for c := 0; c < 40; c++ {
 						m := s.MotionGrid[r][c]
-						if m > 0.1 {
-							rect := image.Rect(
-								int(float32(c)*cellW), 
-								int(float32(r)*cellH), 
-								int(float32(c+1)*cellW), 
-								int(float32(r+1)*cellH),
-							)
-							alpha := uint8(m * 60)
-							col := color.NRGBA{R: 0, G: 200, B: 255, A: alpha}
-							paint.FillShape(gtx.Ops, col, clip.Rect(rect).Op())
+						if m > 0.05 {
+							center := f32.Pt(float32(c)*cellW + cellW/2, float32(r)*cellH + cellH/2)
+							alpha := uint8(m * 45) // More transparent
+							
+							// Ghostly soft glow (Circular point)
+							v := s.MotionVelocity[r][c]
+							vLen := float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
+							
+							// Chromatic Aberration: Shift colors based on velocity
+							shift := vLen * 0.5
+							if shift > 10 { shift = 10 }
+							
+							// Red layer
+							paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 0, B: 0, A: alpha/2}, 
+								clip.Ellipse{Min: image.Pt(int(center.X-cellW-shift), int(center.Y-cellH)), Max: image.Pt(int(center.X+cellW-shift), int(center.Y+cellH))}.Op(gtx.Ops))
+							// Cyan layer
+							paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 230, B: 255, A: alpha}, 
+								clip.Ellipse{Min: image.Pt(int(center.X-cellW), int(center.Y-cellH)), Max: image.Pt(int(center.X+cellW), int(center.Y+cellH))}.Op(gtx.Ops))
 						}
 					}
 				}

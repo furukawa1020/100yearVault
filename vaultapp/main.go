@@ -468,7 +468,7 @@ func startWebcamGazeTracking(state *ui.AppState) {
 
 	// Motion Analysis State
 	var prevPixels []uint8
-	gridRows, gridCols := 16, 20
+	gridRows, gridCols := 32, 40 // Higher resolution
 	
 	for {
 		f, release, err := reader.Read()
@@ -481,16 +481,32 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		rows := f.Bounds().Max.Y
 		cols := f.Bounds().Max.X
 
-		// --- NEURAL MOTION ANALYSIS (Tactile Grid) ---
+		// --- NEURAL MOTION ANALYSIS (Tactile Grid with Face Masking) ---
 		if prevPixels != nil && len(prevPixels) == len(pixels) {
 			state.MotionMu.Lock()
 			state.GridActive = true
 			
 			cellH := rows / gridRows
 			cellW := cols / gridCols
+
+			// Pre-calculate face mask bounds in grid coords
+			var fR0, fR1, fC0, fC1 int
+			if faceSize.X > 0 {
+				fR0 = int((faceCenter.Y - faceSize.Y/2.0) / float32(cellH))
+				fR1 = int((faceCenter.Y + faceSize.Y/2.0) / float32(cellH))
+				fC0 = int((faceCenter.X - faceSize.X/2.0) / float32(cellW))
+				fC1 = int((faceCenter.X + faceSize.X/2.0) / float32(cellW))
+			}
 			
 			for r := 0; r < gridRows; r++ {
 				for c := 0; c < gridCols; c++ {
+					// Apply Face Mask: Skip if cell is inside face region
+					if faceSize.X > 0 && r >= fR0 && r <= fR1 && c >= fC0 && c <= fC1 {
+						mirroredC := gridCols - 1 - c
+						state.MotionGrid[r][mirroredC] = 0
+						continue
+					}
+
 					diffSum := uint32(0)
 					count := uint32(0)
 					
@@ -543,12 +559,18 @@ func startWebcamGazeTracking(state *ui.AppState) {
 		results := classifier.RunCascade(pigoParams, 0.0)
 		results = classifier.ClusterDetections(results, 0.2)
 
+		var faceCenter f32.Point
+		var faceSize f32.Point
+
 		if len(results) > 0 {
 			face := results[0]
 			if face.Q > 5.0 {
+				faceCenter = f32.Pt(float32(face.Col), float32(face.Row))
+				faceSize = f32.Pt(float32(face.Scale)*1.2, float32(face.Scale)*1.5) // Mask slightly larger than face
+				
 				// Base Face Center (Normalized)
-				nx := float32(face.Col) / float32(cols)
-				ny := float32(face.Row) / float32(rows)
+				nx := faceCenter.X / float32(cols)
+				ny := faceCenter.Y / float32(rows)
 				
 				targetX := nx * 1000.0 
 				targetY := ny * 800.0 
