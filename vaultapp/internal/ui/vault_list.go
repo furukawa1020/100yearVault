@@ -62,8 +62,8 @@ type AppState struct {
 	FrameCount             int
 	FaceMu                 sync.Mutex
 	MotionMu               sync.Mutex
-	MotionGrid             [16][20]float32 // 16 rows, 20 columns
-	MotionVelocity         [16][20]f32.Point
+	MotionGrid             [32][40]float32 // 32 rows, 40 columns
+	MotionVelocity         [32][40]f32.Point
 	GridActive             bool
 	MemoryAnchors          []int        // Indices of particles that represent memories
 	FocusIndex             int          // Current focused memory index (-1 if none)
