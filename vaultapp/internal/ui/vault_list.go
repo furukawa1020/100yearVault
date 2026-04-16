@@ -64,10 +64,7 @@ type AppState struct {
 	MotionMu               sync.Mutex
 	MotionGrid             [16][20]float32 // 16 rows, 20 columns
 	MotionVelocity         [16][20]f32.Point
-	PresenceGrid           [16][20]float32 // Persistent hand presence (background subtraction)
-	PresenceMu             sync.Mutex
 	GridActive             bool
-	IsCalibrating          bool
 	MemoryAnchors          []int        // Indices of particles that represent memories
 	FocusIndex             int          // Current focused memory index (-1 if none)
 	FocusStrength          float32      // How "awakened" the focus is (0.0 to 1.0)
@@ -237,39 +234,25 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 							if gridR >= 0 && gridR < 16 && gridC >= 0 && gridC < 20 {
 								s.MotionMu.Lock()
 								mIntensity := s.MotionGrid[gridR][gridC]
+								mVel := s.MotionVelocity[gridR][gridC]
 								s.MotionMu.Unlock()
 								
-								s.PresenceMu.Lock()
-								pIntensity := s.PresenceGrid[gridR][gridC]
-								s.PresenceMu.Unlock()
-
-								if pIntensity > 0.1 || mIntensity > 0.1 {
-									// Gravitational Capture: Particles "swarm" to hand presence
-									captureForce := (pIntensity * 12.0) + (mIntensity * 4.0)
+								if mIntensity > 0.1 {
+									// Tactile Adhesion: Particles "stick" to moving regions
+									adhesion := mIntensity * 8.0 / p.Mass
+									p.VX += mVel.X * adhesion
+									p.VY += mVel.Y * adhesion
 									
-									// Target: Grid cell center in screen space
-									targetX := (float32(gridC) + 0.5) * (float32(gtx.Constraints.Max.X) / 20.0)
-									targetY := (float32(gridR) + 0.5) * (float32(gtx.Constraints.Max.Y) / 16.0)
+									// Jitter for tactile feedback
+									p.VX += (rand.Float32() - 0.5) * 2.5 * mIntensity
+									p.VY += (rand.Float32() - 0.5) * 2.5 * mIntensity
 									
-									dx, dy := targetX-(bSx+p.X), targetY-(bSy+p.Y)
-									dist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-									
-									if dist > 1.0 {
-										p.VX += (dx / dist) * captureForce / p.Mass
-										p.VY += (dy / dist) * captureForce / p.Mass
+									// Flick Momentum
+									if mIntensity > 0.7 {
+										p.VX *= 0.9
+										p.VY *= 0.9
 									}
-
-									// Virtual Friction: Captured particles stay in the swarm
-									if pIntensity > 0.5 {
-										p.VX *= 0.6
-										p.VY *= 0.6
-									}
-									
-									// Jitter/Resonance for tactile feel
-									p.VX += (rand.Float32() - 0.5) * 3.0 * pIntensity
-									p.VY += (rand.Float32() - 0.5) * 3.0 * pIntensity
-									
-									resF += pIntensity * 5.0
+									resF += mIntensity * 2.5
 								}
 							}
 						}
@@ -312,11 +295,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						}
 						
 						pScl := float32(1.0)
-						if resF > 0.5 { 
-							// Massive saturation for "captured" particles
-							pScl = 1.0 + (resF * 0.8)
-							if pScl > 5.0 { pScl = 5.0 }
-						}
+						if resF > 0.5 { pScl = 1.0 + (resF-0.5)*0.8 }
 						
 						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), scale: scale * dScl * pScl, force: resF, mDist: mDist, colorIdx: p.ColorIdx}
 					}
@@ -350,6 +329,26 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				s.FocusStrength *= 0.8
 			}
 
+			// --- 0. GHOST SILHOUETTE LAYER (The Hand Appears) ---
+			if s.GridActive {
+				cellW := float32(gtx.Constraints.Max.X) / 20.0
+				cellH := float32(gtx.Constraints.Max.Y) / 16.0
+				s.MotionMu.Lock()
+				for r := 0; r < 16; r++ {
+					for c := 0; c < 20; c++ {
+						m := s.MotionGrid[r][c]
+						if m > 0.1 {
+							rect := f32.Rect(float32(c)*cellW, float32(r)*cellH, float32(c+1)*cellW, float32(r+1)*cellH)
+							alpha := uint8(m * 60)
+							col := color.NRGBA{R: 0, G: 200, B: 255, A: alpha}
+							paint.FillShape(gtx.Ops, col, clip.Rect(rect.Round()).Op())
+						}
+					}
+				}
+				s.MotionMu.Unlock()
+			}
+
+			// --- 1. MEMORY RESONANCE HALOS ---
 			// --- 2. SECURE SEQUENTIAL BATCHING (Immortality Guard) ---
 			for cIdx := 0; cIdx <= len(ColorDataFragments); cIdx++ {
 				var pth clip.Path
