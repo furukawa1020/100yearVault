@@ -226,7 +226,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						
 						resF := float32(0)
 						
-						// --- Neural Hand Reflections (Grid Interaction) ---
+						// --- Neural Aura & Vortex Physics (Fluid Interaction) ---
 						if s.GridActive {
 							gridR := int(bSy / (float32(gtx.Constraints.Max.Y) / 32.0))
 							gridC := int(bSx / (float32(gtx.Constraints.Max.X) / 40.0))
@@ -237,22 +237,30 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								mVel := s.MotionVelocity[gridR][gridC]
 								s.MotionMu.Unlock()
 								
-								if mIntensity > 0.1 {
-									// Tactile Adhesion: Particles "stick" to moving regions
-									adhesion := mIntensity * 8.0 / p.Mass
+								if mIntensity > 0.05 {
+									// 1. Fluid Adhesion & Vortical Spiral
+									adhesion := mIntensity * 6.0 / p.Mass
 									p.VX += mVel.X * adhesion
 									p.VY += mVel.Y * adhesion
+
+									// Vortex Logic: Rotate around motion vector
+									// Cross product-like rotation in 2D
+									rotStrength := mIntensity * 3.5
+									p.VX += -mVel.Y * rotStrength 
+									p.VY += mVel.X * rotStrength
+
+									// 2. High-Frequency Neural Excitation (Resonance)
+									// Use a high-speed sine wave for "biological jitter"
+									pulse := float32(math.Sin(float64(s.FrameCount)*0.8 + float64(i)))
+									p.VX += pulse * mIntensity * 2.0
+									p.VY += pulse * mIntensity * 2.0
 									
-									// Jitter for tactile feedback
-									p.VX += (rand.Float32() - 0.5) * 2.5 * mIntensity
-									p.VY += (rand.Float32() - 0.5) * 2.5 * mIntensity
-									
-									// Flick Momentum
-									if mIntensity > 0.7 {
-										p.VX *= 0.9
-										p.VY *= 0.9
+									// 3. Capture & Resistance
+									if mIntensity > 0.6 {
+										p.VX *= 0.85
+										p.VY *= 0.85
 									}
-									resF += mIntensity * 2.5
+									resF += mIntensity * 3.0
 								}
 							}
 						}
@@ -329,32 +337,38 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				s.FocusStrength *= 0.8
 			}
 
-			// --- 0. GHOST SILHOUETTE LAYER (Soft Refined Hands) ---
+			// --- 0. NEURAL AURA LAYER (Soft Ethereal Luminescence) ---
 			if s.GridActive {
 				cellW := float32(gtx.Constraints.Max.X) / 40.0
 				cellH := float32(gtx.Constraints.Max.Y) / 32.0
+				
+				// Aura Breathing cycle
+				breathing := float32(math.Sin(float64(s.FrameCount)*0.08))*0.2 + 0.8
+				
 				s.MotionMu.Lock()
-				for r := 0; r < 32; r++ {
-					for c := 0; c < 40; c++ {
+				for r := 0; r < 32; r += 2 { // Step 2 for performance & softer look
+					for c := 0; c < 40; c += 2 {
 						m := s.MotionGrid[r][c]
-						if m > 0.05 {
-							center := f32.Pt(float32(c)*cellW + cellW/2, float32(r)*cellH + cellH/2)
-							alpha := uint8(m * 45) // More transparent
+						if m > 0.04 {
+							center := f32.Pt(float32(c)*cellW + cellW, float32(r)*cellH + cellH)
+							alpha := uint8(m * 35 * breathing) 
 							
-							// Ghostly soft glow (Circular point)
+							// Soft Aura Ellipse (Metaball-style overlap)
 							v := s.MotionVelocity[r][c]
 							vLen := float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
 							
-							// Chromatic Aberration: Shift colors based on velocity
-							shift := vLen * 0.5
-							if shift > 10 { shift = 10 }
+							// Dynamic Radius based on intensity
+							radW := cellW * (2.0 + m*2.0)
+							radH := cellH * (2.0 + m*2.0)
 							
-							// Red layer
-							paint.FillShape(gtx.Ops, color.NRGBA{R: 255, G: 0, B: 0, A: alpha/2}, 
-								clip.Ellipse{Min: image.Pt(int(center.X-cellW-shift), int(center.Y-cellH)), Max: image.Pt(int(center.X+cellW-shift), int(center.Y+cellH))}.Op(gtx.Ops))
-							// Cyan layer
-							paint.FillShape(gtx.Ops, color.NRGBA{R: 0, G: 230, B: 255, A: alpha}, 
-								clip.Ellipse{Min: image.Pt(int(center.X-cellW), int(center.Y-cellH)), Max: image.Pt(int(center.X+cellW), int(center.Y+cellH))}.Op(gtx.Ops))
+							// Chromatic Shift
+							shift := vLen * 0.4; if shift > 12 { shift = 12 }
+							
+							// Render blurred aura
+							paint.FillShape(gtx.Ops, color.NRGBA{R: 20, G: 120, B: 255, A: alpha/2}, 
+								clip.Ellipse{Min: image.Pt(int(center.X-radW-shift), int(center.Y-radH)), Max: image.Pt(int(center.X+radW-shift), int(center.Y+radH))}.Op(gtx.Ops))
+							paint.FillShape(gtx.Ops, color.NRGBA{R: 100, G: 220, B: 255, A: alpha}, 
+								clip.Ellipse{Min: image.Pt(int(center.X-radW/1.5), int(center.Y-radH/1.5)), Max: image.Pt(int(center.X+radW/1.5), int(center.Y+radH/1.5))}.Op(gtx.Ops))
 						}
 					}
 				}
