@@ -1,4 +1,4 @@
-# 百年のヴォールト（Hundred-Year Vault）
+# （Hundred-Year Vault）
 
 **百年先の自分へ、今の想いを封印する。**
 
