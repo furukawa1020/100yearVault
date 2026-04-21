@@ -226,26 +226,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						
 						resF := float32(0)
 						
-						// --- Hand Motion (Grid Interaction) ---
-						if s.GridActive {
-							gridR := int(bSy / (float32(gtx.Constraints.Max.Y) / 32.0))
-							gridC := int(bSx / (float32(gtx.Constraints.Max.X) / 40.0))
-							
-							if gridR >= 0 && gridR < 32 && gridC >= 0 && gridC < 40 {
-								s.MotionMu.Lock()
-								mIntensity := s.MotionGrid[gridR][gridC]
-								mVel := s.MotionVelocity[gridR][gridC]
-								s.MotionMu.Unlock()
-								
-								if mIntensity > 0.25 {
-									// Fluid adhesion: particles follow hand direction
-									adhesion := mIntensity * 4.0 / p.Mass
-									p.VX += mVel.X * adhesion
-									p.VY += mVel.Y * adhesion
-									resF += mIntensity * 1.5
-								}
-							}
-						}
+						// (Camera grid interaction removed — visual only)
 
 						// --- Siphon Logic (Grabbing) ---
 						if s.IsGrabbing {
