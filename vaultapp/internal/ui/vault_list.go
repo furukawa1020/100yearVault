@@ -237,30 +237,27 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								mVel := s.MotionVelocity[gridR][gridC]
 								s.MotionMu.Unlock()
 								
-								if mIntensity > 0.05 {
-									// 1. Fluid Adhesion & Vortical Spiral
-									adhesion := mIntensity * 6.0 / p.Mass
+								if mIntensity > 0.15 { // Raised threshold to reduce noise
+									// 1. Fluid Adhesion
+									adhesion := mIntensity * 5.0 / p.Mass
 									p.VX += mVel.X * adhesion
 									p.VY += mVel.Y * adhesion
 
-									// Vortex Logic: Rotate around motion vector
-									// Cross product-like rotation in 2D
-									rotStrength := mIntensity * 3.5
+									// Vortex: gentle rotation
+									rotStrength := mIntensity * 1.5 // Toned down
 									p.VX += -mVel.Y * rotStrength 
 									p.VY += mVel.X * rotStrength
 
-									// 2. High-Frequency Neural Excitation (Resonance)
-									// Use a high-speed sine wave for "biological jitter"
-									pulse := float32(math.Sin(float64(s.FrameCount)*0.8 + float64(i)))
-									p.VX += pulse * mIntensity * 2.0
-									p.VY += pulse * mIntensity * 2.0
+									// 2. Neural Resonance (subtle)
+									pulse := float32(math.Sin(float64(s.FrameCount)*0.5 + float64(i)*0.1))
+									p.VX += pulse * mIntensity * 0.8
+									p.VY += pulse * mIntensity * 0.8
 									
-									// 3. Capture & Resistance
 									if mIntensity > 0.6 {
-										p.VX *= 0.85
-										p.VY *= 0.85
+										p.VX *= 0.88
+										p.VY *= 0.88
 									}
-									resF += mIntensity * 3.0
+									resF += mIntensity * 2.5
 								}
 							}
 						}
@@ -343,32 +340,33 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				cellH := float32(gtx.Constraints.Max.Y) / 32.0
 				
 				// Aura Breathing cycle
-				breathing := float32(math.Sin(float64(s.FrameCount)*0.08))*0.2 + 0.8
+				breathing := float32(math.Sin(float64(s.FrameCount)*0.08))*0.15 + 0.85
 				
 				s.MotionMu.Lock()
-				for r := 0; r < 32; r += 2 { // Step 2 for performance & softer look
+				for r := 0; r < 32; r += 2 {
 					for c := 0; c < 40; c += 2 {
 						m := s.MotionGrid[r][c]
-						if m > 0.04 {
+						if m > 0.2 { // Higher threshold — only strong motion
 							center := f32.Pt(float32(c)*cellW + cellW, float32(r)*cellH + cellH)
-							alpha := uint8(m * 35 * breathing) 
+							alpha := uint8(m * 28 * breathing)
 							
-							// Soft Aura Ellipse (Metaball-style overlap)
 							v := s.MotionVelocity[r][c]
 							vLen := float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
 							
-							// Dynamic Radius based on intensity
-							radW := cellW * (2.0 + m*2.0)
-							radH := cellH * (2.0 + m*2.0)
+							// Radius capped to 1.5x cell size max
+							radW := cellW * (1.2 + m*0.8)
+							if radW > cellW*2.0 { radW = cellW * 2.0 }
+							radH := cellH * (1.2 + m*0.8)
+							if radH > cellH*2.0 { radH = cellH * 2.0 }
 							
-							// Chromatic Shift
-							shift := vLen * 0.4; if shift > 12 { shift = 12 }
+							shift := vLen * 0.3; if shift > 8 { shift = 8 }
 							
-							// Render blurred aura
-							paint.FillShape(gtx.Ops, color.NRGBA{R: 20, G: 120, B: 255, A: alpha/2}, 
-								clip.Ellipse{Min: image.Pt(int(center.X-radW-shift), int(center.Y-radH)), Max: image.Pt(int(center.X+radW-shift), int(center.Y+radH))}.Op(gtx.Ops))
-							paint.FillShape(gtx.Ops, color.NRGBA{R: 100, G: 220, B: 255, A: alpha}, 
-								clip.Ellipse{Min: image.Pt(int(center.X-radW/1.5), int(center.Y-radH/1.5)), Max: image.Pt(int(center.X+radW/1.5), int(center.Y+radH/1.5))}.Op(gtx.Ops))
+							// Outer soft glow (deep blue)
+							paint.FillShape(gtx.Ops, color.NRGBA{R: 10, G: 80, B: 200, A: alpha/3}, 
+								clip.Ellipse{Min: image.Pt(int(center.X-radW*1.5-shift), int(center.Y-radH*1.5)), Max: image.Pt(int(center.X+radW*1.5-shift), int(center.Y+radH*1.5))}.Op(gtx.Ops))
+							// Inner bright cyan
+							paint.FillShape(gtx.Ops, color.NRGBA{R: 80, G: 200, B: 255, A: alpha}, 
+								clip.Ellipse{Min: image.Pt(int(center.X-radW), int(center.Y-radH)), Max: image.Pt(int(center.X+radW), int(center.Y+radH))}.Op(gtx.Ops))
 						}
 					}
 				}
