@@ -565,11 +565,11 @@ func startWebcamGazeTracking(state *ui.AppState) {
 							idx := y*cols + x
 							d := int(pixels[idx]) - int(prevPixels[idx])
 							if d < 0 { d = -d }
-							if d > 25 { diffSum += uint32(d) }
+							if d > 40 { diffSum += uint32(d) } // Higher threshold: ignore subtle movement
 							count++
 						}
 					}
-					intensity := float32(diffSum) / float32(count*50.0)
+					intensity := float32(diffSum) / float32(count*80.0) // Normalize lower
 					if intensity > 1.0 { intensity = 1.0 }
 					mirroredC := gridCols - 1 - c
 					oldVal := state.MotionGrid[r][mirroredC]
@@ -577,7 +577,7 @@ func startWebcamGazeTracking(state *ui.AppState) {
 						state.MotionGrid[r][mirroredC] = intensity
 						state.MotionVelocity[r][mirroredC] = f32.Pt(state.GazeVelocity.X*0.2, state.GazeVelocity.Y*0.2)
 					} else {
-						state.MotionGrid[r][mirroredC] = oldVal * 0.85
+						state.MotionGrid[r][mirroredC] = oldVal * 0.80 // Faster decay
 						state.MotionVelocity[r][mirroredC].X *= 0.8
 						state.MotionVelocity[r][mirroredC].Y *= 0.8
 					}
