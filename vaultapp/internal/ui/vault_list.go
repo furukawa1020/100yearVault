@@ -226,7 +226,7 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						
 						resF := float32(0)
 						
-						// --- Neural Aura & Vortex Physics (Fluid Interaction) ---
+						// --- Hand Motion (Grid Interaction) ---
 						if s.GridActive {
 							gridR := int(bSy / (float32(gtx.Constraints.Max.Y) / 32.0))
 							gridC := int(bSx / (float32(gtx.Constraints.Max.X) / 40.0))
@@ -237,27 +237,12 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 								mVel := s.MotionVelocity[gridR][gridC]
 								s.MotionMu.Unlock()
 								
-								if mIntensity > 0.15 { // Raised threshold to reduce noise
-									// 1. Fluid Adhesion
-									adhesion := mIntensity * 5.0 / p.Mass
+								if mIntensity > 0.25 {
+									// Fluid adhesion: particles follow hand direction
+									adhesion := mIntensity * 4.0 / p.Mass
 									p.VX += mVel.X * adhesion
 									p.VY += mVel.Y * adhesion
-
-									// Vortex: gentle rotation
-									rotStrength := mIntensity * 1.5 // Toned down
-									p.VX += -mVel.Y * rotStrength 
-									p.VY += mVel.X * rotStrength
-
-									// 2. Neural Resonance (subtle)
-									pulse := float32(math.Sin(float64(s.FrameCount)*0.5 + float64(i)*0.1))
-									p.VX += pulse * mIntensity * 0.8
-									p.VY += pulse * mIntensity * 0.8
-									
-									if mIntensity > 0.6 {
-										p.VX *= 0.88
-										p.VY *= 0.88
-									}
-									resF += mIntensity * 2.5
+									resF += mIntensity * 1.5
 								}
 							}
 						}
@@ -300,7 +285,10 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 						}
 						
 						pScl := float32(1.0)
-						if resF > 0.5 { pScl = 1.0 + (resF-0.5)*0.8 }
+						if resF > 0.3 {
+							pScl = 1.0 + (resF-0.3)*0.3  // Max ~1.5x, not explosive
+							if pScl > 1.5 { pScl = 1.5 }
+						}
 						
 						pts[i] = screenPt{pos: f32.Pt(bSx+p.X, bSy+p.Y), scale: scale * dScl * pScl, force: resF, mDist: mDist, colorIdx: p.ColorIdx}
 					}
@@ -334,39 +322,22 @@ func (s *AppState) LayoutNeural(gtx layout.Context) layout.Dimensions {
 				s.FocusStrength *= 0.8
 			}
 
-			// --- 0. NEURAL AURA LAYER (Soft Ethereal Luminescence) ---
+			// --- 0. SUBTLE HAND AURA (Dim glow only) ---
 			if s.GridActive {
 				cellW := float32(gtx.Constraints.Max.X) / 40.0
 				cellH := float32(gtx.Constraints.Max.Y) / 32.0
-				
-				// Aura Breathing cycle
-				breathing := float32(math.Sin(float64(s.FrameCount)*0.08))*0.15 + 0.85
-				
 				s.MotionMu.Lock()
-				for r := 0; r < 32; r += 2 {
-					for c := 0; c < 40; c += 2 {
+				for r := 0; r < 32; r += 3 {
+					for c := 0; c < 40; c += 3 {
 						m := s.MotionGrid[r][c]
-						if m > 0.2 { // Higher threshold — only strong motion
-							center := f32.Pt(float32(c)*cellW + cellW, float32(r)*cellH + cellH)
-							alpha := uint8(m * 28 * breathing)
-							
-							v := s.MotionVelocity[r][c]
-							vLen := float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
-							
-							// Radius capped to 1.5x cell size max
-							radW := cellW * (1.2 + m*0.8)
-							if radW > cellW*2.0 { radW = cellW * 2.0 }
-							radH := cellH * (1.2 + m*0.8)
-							if radH > cellH*2.0 { radH = cellH * 2.0 }
-							
-							shift := vLen * 0.3; if shift > 8 { shift = 8 }
-							
-							// Outer soft glow (deep blue)
-							paint.FillShape(gtx.Ops, color.NRGBA{R: 10, G: 80, B: 200, A: alpha/3}, 
-								clip.Ellipse{Min: image.Pt(int(center.X-radW*1.5-shift), int(center.Y-radH*1.5)), Max: image.Pt(int(center.X+radW*1.5-shift), int(center.Y+radH*1.5))}.Op(gtx.Ops))
-							// Inner bright cyan
-							paint.FillShape(gtx.Ops, color.NRGBA{R: 80, G: 200, B: 255, A: alpha}, 
-								clip.Ellipse{Min: image.Pt(int(center.X-radW), int(center.Y-radH)), Max: image.Pt(int(center.X+radW), int(center.Y+radH))}.Op(gtx.Ops))
+						if m > 0.35 { // Only very strong motion
+							cx := int(float32(c)*cellW + cellW)
+							cy := int(float32(r)*cellH + cellH)
+							r1 := int(cellW * 1.5)
+							r2 := int(cellH * 1.5)
+							alpha := uint8(m * 18) // Very subtle
+							paint.FillShape(gtx.Ops, color.NRGBA{R: 60, G: 160, B: 255, A: alpha},
+								clip.Ellipse{Min: image.Pt(cx-r1, cy-r2), Max: image.Pt(cx+r1, cy+r2)}.Op(gtx.Ops))
 						}
 					}
 				}
